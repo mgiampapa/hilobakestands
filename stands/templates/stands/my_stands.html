@@ -1,0 +1,56 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% trans "My stand" %} — HiloBakeStands{% endblock %}
+{% block content %}
+<h1>{% trans "My stand" %}</h1>
+
+{% for row in rows %}
+  <div class="card">
+    {% if row.stand.status == 'published' %}
+      <h2><a href="{{ row.stand.get_absolute_url }}">{{ row.stand.name }}</a></h2>
+    {% else %}
+      <h2>{{ row.stand.name }}</h2>
+      <span class="badge hiddenbadge">{% trans "Hidden — not listed on the site" %}</span>
+    {% endif %}
+
+    {% if row.open_now %}
+      <span class="badge open">{% if row.stand.attendance == 'unattended' %}{% trans "Stocked now" %}{% else %}{% trans "Open now" %}{% endif %}</span>
+    {% else %}
+      <span class="badge closed">{% trans "Closed" %}</span>
+    {% endif %}
+
+    <div class="today-actions">
+      <form method="post" action="{% url 'set_today' row.stand.slug %}">{% csrf_token %}
+        <input type="hidden" name="state" value="open">
+        <button type="submit" class="btn {% if row.override and row.override.is_open %}btn-primary{% endif %}">{% trans "We're open today" %}</button>
+      </form>
+      <form method="post" action="{% url 'set_today' row.stand.slug %}">{% csrf_token %}
+        <input type="hidden" name="state" value="closed">
+        <button type="submit" class="btn {% if row.override and not row.override.is_open and not row.override.note %}btn-primary{% endif %}">{% trans "Closed today" %}</button>
+      </form>
+      <form method="post" action="{% url 'set_today' row.stand.slug %}">{% csrf_token %}
+        <input type="hidden" name="state" value="closed">
+        <input type="hidden" name="note" value="{% trans 'Pau — sold out' %}">
+        <button type="submit" class="btn {% if row.override and not row.override.is_open and row.override.note %}btn-primary{% endif %}">{% trans "Pau!" %}</button>
+      </form>
+      <form method="post" action="{% url 'set_today' row.stand.slug %}">{% csrf_token %}
+        <input type="hidden" name="state" value="clear">
+        <button type="submit" class="btn {% if not row.override %}btn-primary{% endif %}">{% trans "Regular schedule" %}</button>
+      </form>
+    </div>
+    <p class="muted">{% trans "The toggle applies to today only — at midnight your regular schedule takes over again." %}</p>
+
+    <div class="manage-actions">
+      <a class="btn editlink" href="{% url 'edit_stand' row.stand.slug %}">✏️ {% trans "Edit info" %}</a>
+      <a class="btn editlink" href="{% url 'edit_hours' row.stand.slug %}">🕐 {% trans "Edit hours" %}</a>
+      <a class="btn editlink" href="{% url 'edit_pin' row.stand.slug %}">📌 {% if row.stand.latitude is not None %}{% trans "Move map pin" %}{% else %}{% trans "Set map pin" %}{% endif %}</a>
+      <a class="btn editlink" href="{% url 'stand_photos' row.stand.slug %}">📷 {% trans "Photos" %}</a>
+    </div>
+  </div>
+{% empty %}
+  <div class="card">
+    <p>{% trans "No stands are linked to your account yet." %}</p>
+    <p class="muted">{% trans "Got a claim link or QR flyer? Open it to connect your stand. Don't have one? Reach out via your stand's page and we'll get you set up." %}</p>
+  </div>
+{% endfor %}
+{% endblock %}

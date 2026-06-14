@@ -1,0 +1,145 @@
+{% load i18n socialaccount static %}<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="{% static 'stands/hibiscus.svg' %}">
+<title>{% block title %}HiloBakeStands{% endblock %}</title>
+<style>
+  :root {
+    --green: #2e7d5b; --sand: #fdf6ec; --coral: #e76f51;
+    --ink: #2b2b2b; --soft: #e8e0d2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--sand); color: var(--ink); }
+  header { background: var(--green); color: #fff; padding: 0.8rem 1rem;
+           display: flex; align-items: center; justify-content: space-between;
+           flex-wrap: wrap; gap: 0.5rem; }
+  header a { color: #fff; text-decoration: none; font-weight: 700; font-size: 1.2rem; }
+  .brand { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .brand-flower { height: 1.7rem; width: 1.7rem; }
+  .auth { display: flex; align-items: center; gap: 0.6rem; }
+  .auth .who { font-size: 0.9rem; opacity: 0.9; }
+  .auth form { margin: 0; }
+  .authbtn { padding: 0.35rem 0.8rem; border-radius: 8px; font-size: 0.85rem;
+             background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.7);
+             cursor: pointer; }
+  .authbtn:hover { background: rgba(255,255,255,0.15); }
+  a.authbtn.mystand { font-size: 0.85rem; font-weight: 400; }
+  .today-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; }
+  .today-actions form { margin: 0; }
+  .today-actions .btn { cursor: pointer; }
+  /* Touch comfort: roomier buttons on coarse pointers (phones/tablets) */
+  @media (pointer: coarse) {
+    .today-actions .btn, .manage-actions .btn { padding: 0.6rem 1rem; }
+  }
+  .manage-actions { display: flex; flex-wrap: wrap; gap: 0.6rem;
+    margin-top: 1rem; padding-top: 0.9rem;
+    border-top: 1px dashed var(--soft); }
+  .titlerow { display: flex; align-items: center; gap: 0.8rem;
+    flex-wrap: wrap; }
+  .titlerow h1 { margin: 0; }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  /* List cards with a thumbnail: float it right, text wraps around. */
+  .card .listthumb { float: right; width: 100px; height: 100px;
+    object-fit: cover; border-radius: 10px; margin: 0 0 0.5rem 0.8rem; }
+  .card .listthumb-link { float: right; line-height: 0; margin: 0 0 0.5rem 0.8rem; }
+  .card .listthumb-link .listthumb { float: none; margin: 0; }
+  @media (max-width: 480px) {
+    .card .listthumb-link .listthumb { width: 115px; height: 115px; }
+  }
+  .card.hasthumb::after { content: ""; display: block; clear: both; }
+  /* Owner photo manager rows */
+  .photorow { display: flex; gap: 1rem; align-items: flex-start; }
+  .photorow .photothumb { width: 120px; height: 120px; object-fit: cover;
+    border-radius: 10px; flex-shrink: 0; }
+  .photorow .photometa { flex: 1; min-width: 0; }
+  .photorow .photometa p { margin: 0.4rem 0; }
+  .ownerform .field { margin-bottom: 0.9rem; }
+  .ownerform label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+  .ownerform input[type="text"], .ownerform input[type="tel"],
+  .ownerform input[type="url"], .ownerform input[type="email"],
+  .ownerform textarea {
+    width: 100%; padding: 0.5rem 0.7rem; border-radius: 8px;
+    border: 1px solid var(--soft); font: inherit; }
+  .ownerform ul { list-style: none; padding: 0; margin: 0; }
+  /* Django renders checkbox/radio groups as nested divs */
+  .ownerform ul li label, .ownerform .field div label { font-weight: 400;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    margin-bottom: 0.2rem; }
+  .ownerform .errorlist { color: #9c3c22; font-size: 0.85rem;
+    list-style: none; padding: 0; }
+  .ownerform .btn { cursor: pointer; text-decoration: none;
+    display: inline-block; }
+  .warnbox { background: #fff3cd; border: 1px solid #e6c987;
+    border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 1rem; }
+  .hoursgrid td { padding: 0.25rem 0.4rem 0.25rem 0; }
+  .hoursgrid .daylabel { font-weight: 600; padding-right: 0.8rem; }
+  .hoursgrid input[type="time"] { padding: 0.35rem 0.5rem; border-radius: 8px;
+    border: 1px solid var(--soft); font: inherit; }
+  .hoursgrid .rowerror input { border-color: #9c3c22; }
+  .fielderror { color: #9c3c22; font-size: 0.85rem; }
+  .badge.hiddenbadge { background: #fff3cd; color: #7a5c00; font-weight: 600; }
+  .namechange { margin-top: 1.2rem; }
+  main { max-width: 720px; margin: 0 auto; padding: 1rem; }
+  .card { background: #fff; border: 1px solid var(--soft); border-radius: 12px;
+          padding: 1rem; margin-bottom: 0.8rem; }
+  .card h2 { margin: 0 0 0.3rem; font-size: 1.1rem; }
+  .card a { color: var(--green); text-decoration: none; }
+  .badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px;
+           font-size: 0.75rem; background: var(--soft); margin-right: 0.3rem; }
+  .badge.open { background: #d3edda; color: #1e6e3c; font-weight: 600; }
+  .badge.closed { background: #f3d9d3; color: #9c3c22; }
+  .filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;
+             align-items: center; }
+  .filters label { display: inline-flex; align-items: center; gap: 0.35rem;
+                   font-size: 0.9rem; }
+  .filters input[type="checkbox"] { margin: 0; }
+  .filters select, .filters button, .btn {
+    padding: 0.45rem 0.8rem; border-radius: 8px; border: 1px solid var(--soft);
+    background: #fff; font-size: 0.9rem; }
+  .btn-primary { background: var(--coral); color: #fff; border: none; }
+  a.btn { text-decoration: none; color: var(--ink); display: inline-block; }
+  a.btn.btn-primary, .card a.btn.btn-primary { color: #fff; }
+  .card a.btn { color: var(--ink); }
+  #near-me { cursor: pointer; }
+  #near-me.active { background: var(--green); color: #fff; border-color: var(--green); }
+  #near-me:disabled { opacity: 0.6; cursor: wait; }
+  .badge.distance { background: #dbe9f4; color: #1d4e79; font-weight: 600; }
+  .messages { list-style: none; padding: 0; }
+  .messages li { background: #d3edda; padding: 0.6rem 1rem; border-radius: 8px; }
+  table.hours { border-collapse: collapse; }
+  table.hours td { padding: 0.15rem 0.7rem 0.15rem 0; }
+  footer { text-align: center; color: #888; font-size: 0.8rem; padding: 2rem 1rem; }
+  #map { height: 70vh; border-radius: 12px; border: 1px solid var(--soft); }
+  .muted { color: #888; font-size: 0.85rem; }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<header>
+  <a class="brand" href="{% url 'stand_list' %}"><img src="{% static 'stands/hibiscus.svg' %}" alt="" class="brand-flower"> HiloBakeStands</a>
+  <div class="auth">
+    {% if user.is_authenticated %}
+      {% if user.owned_stands.exists %}
+        <a class="authbtn mystand" href="{% url 'my_stands' %}">{% trans "My stand" %}</a>
+      {% endif %}
+      <span class="who">{% blocktrans with name=user.first_name|default:user.username %}Aloha, {{ name }}{% endblocktrans %}</span>
+      <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}
+        <button type="submit" class="authbtn">{% trans "Sign out" %}</button>
+      </form>
+    {% else %}
+      <form method="post" action="{% provider_login_url 'google' next=request.get_full_path %}">{% csrf_token %}
+        <button type="submit" class="authbtn">{% trans "Sign in" %}</button>
+      </form>
+    {% endif %}
+  </div>
+</header>
+<main>
+  {% if messages %}<ul class="messages">{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<footer>{% trans "Hilo's local ono grindz — bake stands, food trucks, farm stands & pop-ups." %}</footer>
+</body>
+</html>

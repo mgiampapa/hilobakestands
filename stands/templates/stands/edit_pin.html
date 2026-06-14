@@ -1,0 +1,83 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% blocktrans with name=stand.name %}Map pin for {{ name }}{% endblocktrans %} — HiloBakeStands{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% blocktrans with name=stand.name %}Map pin for {{ name }}{% endblocktrans %}</h2>
+  <p class="muted">{% trans "Drag the pin (or tap the map) to the exact spot. Standing at your stand right now? Use the location button and the pin comes to you." %}</p>
+
+  {% if error %}<p class="fielderror">{{ error }}</p>{% endif %}
+
+  <div id="pin-map"></div>
+
+  <form method="post" class="ownerform" id="pin-form">{% csrf_token %}
+    <input type="hidden" name="latitude" id="id_latitude"
+           value="{% if stand.latitude is not None %}{{ stand.latitude }}{% endif %}">
+    <input type="hidden" name="longitude" id="id_longitude"
+           value="{% if stand.longitude is not None %}{{ stand.longitude }}{% endif %}">
+    <div class="today-actions" style="margin-top: 0.8rem;">
+      <button type="button" class="btn" id="gps-btn">📍 {% trans "Use my current location" %}</button>
+      <button type="submit" class="btn btn-primary" id="save-pin" disabled>{% trans "Save pin" %}</button>
+      <a class="btn" href="{% url 'my_stands' %}">{% trans "Cancel" %}</a>
+    </div>
+    <p class="muted" id="pin-status">{% if stand.latitude is not None %}{% trans "Your stand's current pin is shown. Move it if it's off." %}{% else %}{% trans "No pin yet — your stand isn't on the map until you place one." %}{% endif %}</p>
+  </form>
+</div>
+
+<style>#pin-map { height: 55vh; min-height: 300px; border-radius: 12px; border: 1px solid var(--soft); }</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const latIn = document.getElementById('id_latitude');
+  const lngIn = document.getElementById('id_longitude');
+  const save = document.getElementById('save-pin');
+  const status = document.getElementById('pin-status');
+  const gpsBtn = document.getElementById('gps-btn');
+  const movedMsg = "{% trans 'Pin moved — remember to save.' %}";
+  const gpsFail = "{% trans 'Location unavailable — drag the pin instead.' %}";
+
+  const HILO = [19.7074, -155.0885];
+  const has = latIn.value !== '' && lngIn.value !== '';
+  const start = has ? [parseFloat(latIn.value), parseFloat(lngIn.value)] : HILO;
+
+  const map = L.map('pin-map').setView(start, has ? 17 : 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    referrerPolicy: 'origin',  // OSM 403s referrer-less tile requests
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  const pin = L.marker(start, { draggable: true }).addTo(map);
+
+  function setCoords(latlng) {
+    latIn.value = latlng.lat.toFixed(6);
+    lngIn.value = latlng.lng.toFixed(6);
+    save.disabled = false;
+    status.textContent = movedMsg;
+  }
+  pin.on('dragend', function () { setCoords(pin.getLatLng()); });
+  map.on('click', function (e) { pin.setLatLng(e.latlng); setCoords(e.latlng); });
+
+  if ('geolocation' in navigator) {
+    gpsBtn.addEventListener('click', function () {
+      gpsBtn.disabled = true;
+      navigator.geolocation.getCurrentPosition(function (p) {
+        gpsBtn.disabled = false;
+        const ll = [p.coords.latitude, p.coords.longitude];
+        pin.setLatLng(ll);
+        map.setView(ll, 18);
+        setCoords({lat: ll[0], lng: ll[1]});
+      }, function () {
+        gpsBtn.disabled = false;
+        status.textContent = gpsFail;
+      }, {enableHighAccuracy: true, timeout: 10000});
+    });
+  } else {
+    gpsBtn.hidden = true;
+  }
+});
+</script>
+{% endblock %}

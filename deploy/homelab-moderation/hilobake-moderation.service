@@ -1,0 +1,18 @@
+[Unit]
+Description=HiloBakeStands NSFW moderation fallback
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mgiampapa
+WorkingDirectory=/srv/hilobakestand_moderation
+EnvironmentFile=/srv/hilobakestand_moderation/.env
+ExecStart=/srv/hilobakestand_moderation/venv/bin/uvicorn app:app --host 0.0.0.0 --port 8788
+Restart=on-failure
+RestartSec=10
+# The model loads lazily on first import; give it time on slow disks.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

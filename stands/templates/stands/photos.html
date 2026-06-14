@@ -1,0 +1,60 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% blocktrans with name=stand.name %}Photos for {{ name }}{% endblocktrans %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% blocktrans with name=stand.name %}Photos for {{ name }}{% endblocktrans %}</h2>
+  <p class="muted">{% blocktrans with n=max_photos %}Up to {{ n }} photos. New photos are checked automatically and usually go live right away. Location data is stripped from every photo for your privacy.{% endblocktrans %}</p>
+
+  {% if photos|length < max_photos %}
+    <form method="post" enctype="multipart/form-data" class="ownerform">{% csrf_token %}
+      <div class="field">
+        <label for="id_photo">{% trans "Add a photo" %}</label>
+        <input type="file" id="id_photo" name="photo" accept="image/*" required>
+      </div>
+      <div class="field">
+        <label for="id_caption">{% trans "Caption (optional)" %}</label>
+        <input type="text" id="id_caption" name="caption" maxlength="200"
+               placeholder="{% trans 'e.g. Fresh butter mochi, Saturday batch' %}">
+      </div>
+      <button type="submit" class="btn btn-primary">{% trans "Upload" %}</button>
+    </form>
+  {% else %}
+    <p class="muted">{% trans "Your gallery is full — delete a photo to add another." %}</p>
+  {% endif %}
+</div>
+
+{% for photo in photos %}
+  <div class="card photorow">
+    <img src="{{ photo.image.url }}" alt="{{ photo.caption }}" class="photothumb" loading="lazy">
+    <div class="photometa">
+      {% if photo.approved %}
+        <span class="badge open">{% trans "Live" %}</span>
+        {% if stand.list_photo_id == photo.pk %}
+          <span class="badge distance">{% trans "List thumbnail" %}</span>
+        {% endif %}
+      {% elif photo.moderation == 'flagged' %}
+        <span class="badge closed">{% trans "Held for review" %}</span>
+      {% else %}
+        <span class="badge hiddenbadge">{% trans "Waiting for review" %}</span>
+      {% endif %}
+      {% if photo.caption %}<p>{{ photo.caption }}</p>{% endif %}
+      <div class="today-actions">
+        {% if photo.approved and stand.list_photo_id != photo.pk %}
+          <form method="post" action="{% url 'set_list_photo' stand.slug photo.pk %}">{% csrf_token %}
+            <button type="submit" class="btn">{% trans "Use as list thumbnail" %}</button>
+          </form>
+        {% endif %}
+        <form method="post" action="{% url 'delete_photo' stand.slug photo.pk %}"
+              onsubmit="return confirm('{% trans "Delete this photo?" %}');">{% csrf_token %}
+          <button type="submit" class="btn">🗑 {% trans "Delete" %}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+{% empty %}
+  <p class="muted">{% trans "No photos yet — listings with photos get a lot more attention." %}</p>
+{% endfor %}
+
+<p><a class="btn" href="{% url 'my_stands' %}">← {% trans "Back to my stand" %}</a></p>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% load i18n %}
+<form class="filters" method="get">
+  <select name="type">
+    <option value="">{% trans "All types" %}</option>
+    {% for value, label in location_types %}
+      <option value="{{ value }}" {% if current.type == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="category">
+    <option value="">{% trans "All food" %}</option>
+    {% for c in categories %}
+      <option value="{{ c.slug }}" {% if current.category == c.slug %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <label><input type="checkbox" name="open" value="now" {% if current.open %}checked{% endif %}> {% trans "Open now" %}</label>
+  <button type="submit">{% trans "Filter" %}</button>
+  <button type="button" class="btn" id="near-me" aria-pressed="false" hidden>📍 {% trans "Near me" %}</button>
+  {% if map_page %}
+    <a class="btn toggle-view" href="{% url 'stand_list' %}?{{ request.GET.urlencode }}">📋 {% trans "List view" %}</a>
+  {% else %}
+    <a class="btn toggle-view" href="{% url 'stand_map' %}?{{ request.GET.urlencode }}">🗺️ {% trans "Map view" %}</a>
+  {% endif %}
+  <span class="muted" id="near-me-status" role="status"></span>
+</form>
+<script>
+// "Near me": center the map on the visitor and sort the list by distance.
+// Auto-enables WITHOUT prompting when the browser already granted location
+// (Permissions API query is free and never shows a popup); otherwise it
+// stays off until the visitor taps the button, which triggers the normal
+// browser permission prompt. Preference persists in localStorage so it
+// works the same for signed-in and anonymous visitors.
+(function () {
+  const btn = document.getElementById('near-me');
+  if (!('geolocation' in navigator)) return;  // button stays hidden
+  btn.hidden = false;
+  const status = document.getElementById('near-me-status');
+  const PREF = 'hbs-geosort';            // 'on' | 'off' | unset
+  const failMsg = "{% trans 'Location unavailable — check your browser permission.' %}";
+  let pos = null, active = false, statusTimer = null;
+
+  // Haversine, in miles — shared with the page scripts.
+  window.hbsDistMi = function (aLat, aLng, bLat, bLng) {
+    const R = 3958.8, toRad = Math.PI / 180;
+    const dLat = (bLat - aLat) * toRad, dLng = (bLng - aLng) * toRad;
+    const s = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(aLat * toRad) * Math.cos(bLat * toRad) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(s));
+  };
+  window.hbsFmtMi = function (d) {
+    return (d < 10 ? (Math.round(d * 10) / 10).toFixed(1) : Math.round(d)) + ' mi';
+  };
+
+  function flash(msg) {
+    status.textContent = msg;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () { status.textContent = ''; }, 6000);
+  }
+
+  function setActive(on) {
+    active = on;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    window.hbsGeoPos = on ? pos : null;   // for scripts that boot later
+    document.dispatchEvent(new CustomEvent('geosort', {detail: window.hbsGeoPos}));
+  }
+
+  function locate(interactive) {
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(function (p) {
+      btn.disabled = false;
+      pos = {lat: p.coords.latitude, lng: p.coords.longitude};
+      setActive(true);
+    }, function () {
+      btn.disabled = false;
+      if (interactive) flash(failMsg);
+      setActive(false);
+    }, {maximumAge: 300000, timeout: 10000});
+  }
+
+  btn.addEventListener('click', function () {
+    if (active) {
+      localStorage.setItem(PREF, 'off');
+      setActive(false);
+    } else {
+      localStorage.setItem(PREF, 'on');
+      locate(true);
+    }
+  });
+
+  // Auto-enable rules:
+  //  - visitor turned it off → stay off
+  //  - visitor opted in before (pref 'on') → locate on every load, even if
+  //    the permission state reads 'prompt': Firefox doesn't persist
+  //    geolocation grants unless "Remember this decision" is ticked, so
+  //    'prompt' is its normal state for returning visitors who said yes.
+  //    Proximity is the site's primary use case — default to it when the
+  //    visitor has ever asked for it.
+  //  - no stated preference → enable silently only if already 'granted'
+  //    (never surprise a first-time visitor with a popup)
+  const pref = localStorage.getItem(PREF);
+  if (pref === 'off') return;
+  if (pref === 'on') {
+    locate(false);
+  } else if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({name: 'geolocation'}).then(function (st) {
+      if (st.state === 'granted') locate(false);
+    }).catch(function () {});
+  }
+})();
+</script>

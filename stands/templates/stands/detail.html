@@ -1,0 +1,82 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{{ stand.name }} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  {% if user.is_authenticated and stand.owner_id == user.id %}
+    <div class="titlerow">
+      <h1>{{ stand.name }}</h1>
+      <a class="btn editlink" href="{% url 'my_stands' %}">✏️ {% trans "Edit details" %}</a>
+    </div>
+  {% else %}
+    <h1>{{ stand.name }}</h1>
+  {% endif %}
+  <span class="badge">{{ stand.get_location_type_display }}</span>
+  {% if stand.is_open_now %}
+    <span class="badge open">{% if stand.attendance == 'unattended' %}{% trans "Stocked now" %}{% else %}{% trans "Open now" %}{% endif %}</span>
+  {% else %}
+    <span class="badge closed">{% trans "Closed" %}</span>
+  {% endif %}
+  {% for c in stand.categories.all %}<span class="badge">{{ c.name }}</span>{% endfor %}
+
+  <p>{{ stand.description|linebreaks }}</p>
+
+  {% if stand.attendance == 'unattended' %}
+    <p><em>{% trans "Honor stand — hours below mean stocked, not staffed. Often sells out early." %}</em></p>
+  {% endif %}
+
+  <h3>{% trans "Hours" %}</h3>
+  <table class="hours">
+    {% for h in stand.weekly_hours.all %}
+      <tr><td>{{ h.get_weekday_display }}</td><td>{{ h.open_time|time:"g:ia" }}–{{ h.close_time|time:"g:ia" }}</td></tr>
+    {% empty %}
+      <tr><td>{% trans "No regular hours posted." %}</td></tr>
+    {% endfor %}
+  </table>
+  {% if stand.irregular_hours_note %}<p><em>{{ stand.irregular_hours_note }}</em></p>{% endif %}
+  {% with override=stand.todays_override %}
+    {% if override %}
+      <p><strong>{% trans "Today:" %}</strong>
+        {% if override.is_open %}{% trans "Open" %}{% else %}{% trans "Closed" %}{% endif %}
+        {% if override.note %}— {{ override.note }}{% endif %}</p>
+    {% endif %}
+  {% endwith %}
+
+  {% if stand.street_address %}<h3>{% trans "Where" %}</h3><p>{{ stand.street_address }}</p>{% endif %}
+  {% if stand.latitude %}
+    <p>
+      {% for label, url in stand.directions_links.items %}
+        <a class="btn" href="{{ url }}">{{ label }}</a>
+      {% endfor %}
+    </p>
+    <iframe width="100%" height="280" style="border:1px solid #e8e0d2; border-radius:12px"
+      src="{{ stand.osm_embed_url }}"
+      loading="lazy"></iframe>
+  {% endif %}
+
+  {% if stand.payment_methods.exists %}
+    <h3>{% trans "Payment" %}</h3>
+    <p>{% for p in stand.payment_methods.all %}<span class="badge">{{ p.name }}</span>{% endfor %}</p>
+  {% endif %}
+
+  <h3>{% trans "Find them" %}</h3>
+  <p>
+    {% if stand.instagram %}<a class="btn" href="https://instagram.com/{{ stand.instagram|cut:'@' }}">Instagram</a>{% endif %}
+    {% if stand.facebook %}<a class="btn" href="https://facebook.com/{{ stand.facebook }}">Facebook</a>{% endif %}
+    {% if stand.tiktok %}<a class="btn" href="https://tiktok.com/@{{ stand.tiktok|cut:'@' }}">TikTok</a>{% endif %}
+    {% if stand.website %}<a class="btn" href="{{ stand.website }}">{% trans "Website" %}</a>{% endif %}
+    {% if stand.phone %}<a class="btn" href="tel:{{ stand.phone }}">{{ stand.phone }}</a>{% endif %}
+  </p>
+
+  {% for photo in photos %}
+    <figure style="margin:0.5rem 0 0">
+      <img src="{{ photo.image.url }}" alt="{{ photo.caption }}" style="max-width:100%; border-radius:12px; display:block">
+      {% if photo.caption %}<figcaption class="muted" style="margin-top:0.25rem">{{ photo.caption }}</figcaption>{% endif %}
+    </figure>
+  {% endfor %}
+
+  <p style="margin-top:1.5rem">
+    <a href="{% url 'stand_report' stand.slug %}">{% trans "Something wrong with this listing? Let us know." %}</a>
+  </p>
+</div>
+{% endblock %}

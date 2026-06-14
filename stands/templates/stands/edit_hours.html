@@ -1,0 +1,39 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% blocktrans with name=stand.name %}Hours for {{ name }}{% endblocktrans %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% blocktrans with name=stand.name %}Hours for {{ name }}{% endblocktrans %}</h2>
+  <p class="muted">{% trans "Leave a day blank if you're closed that day. Need a one-off change? Use the open/closed-today buttons on your dashboard instead — they always win over the schedule." %}</p>
+
+  {% if multi_range_days %}
+    <div class="warnbox">
+      <p>{% blocktrans with days=multi_range_days|join:", " %}Heads up: {{ days }} currently has more than one time range (set by the site admin). This page handles one range per day — saving will replace the extras with what's below. If you need split hours, email us instead.{% endblocktrans %}</p>
+    </div>
+  {% endif %}
+
+  <form method="post" class="ownerform">{% csrf_token %}
+    <table class="hoursgrid">
+      {% for row in grid %}
+        <tr{% if row.error %} class="rowerror"{% endif %}>
+          <td class="daylabel">{{ row.label }}</td>
+          <td><input type="time" name="open_{{ row.num }}" value="{{ row.open }}" aria-label="{% blocktrans with day=row.label %}{{ day }} opening time{% endblocktrans %}"></td>
+          <td>–</td>
+          <td><input type="time" name="close_{{ row.num }}" value="{{ row.close }}" aria-label="{% blocktrans with day=row.label %}{{ day }} closing time{% endblocktrans %}"></td>
+          <td>{% if row.error %}<span class="fielderror">{{ row.error }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </table>
+
+    <div class="field" style="margin-top: 1rem;">
+      <label for="id_note">{% trans "Anything the schedule can't say?" %}</label>
+      <input type="text" id="id_note" name="irregular_hours_note" maxlength="300"
+             value="{{ note }}" placeholder="{% trans 'e.g. Open until sold out — usually by noon' %}">
+      <p class="muted">{% trans "Shown on your listing. Doesn't affect the open-now badge." %}</p>
+    </div>
+
+    <button type="submit" class="btn btn-primary">{% trans "Save hours" %}</button>
+    <a class="btn" href="{% url 'my_stands' %}">{% trans "Cancel" %}</a>
+  </form>
+</div>
+{% endblock %}

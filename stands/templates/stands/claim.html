@@ -1,0 +1,23 @@
+{% extends "stands/base.html" %}
+{% load i18n socialaccount %}
+{% block title %}{% blocktrans with name=stand.name %}Claim {{ name }}{% endblocktrans %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% blocktrans with name=stand.name %}Claim {{ name }}{% endblocktrans %}</h2>
+  <p>{% blocktrans with name=stand.name %}Are you the owner of {{ name }}? Claiming your listing lets you
+  manage it on HiloBakeStands — hours, photos, and an open/closed-today switch.{% endblocktrans %}</p>
+
+  {% if user.is_authenticated %}
+    <p class="muted">{% blocktrans with email=user.email %}Signed in as {{ email }}. The stand will be linked
+    to this account.{% endblocktrans %}</p>
+    <form method="post">{% csrf_token %}
+      <button type="submit" class="btn btn-primary">{% blocktrans with name=stand.name %}Yes, this is my stand — claim it{% endblocktrans %}</button>
+    </form>
+  {% else %}
+    <p class="muted">{% trans "First, sign in with Google. You'll come right back here to finish." %}</p>
+    <form method="post" action="{% provider_login_url 'google' next=request.get_full_path %}">{% csrf_token %}
+      <button type="submit" class="btn btn-primary">{% trans "Sign in with Google to claim" %}</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

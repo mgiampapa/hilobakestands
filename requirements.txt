@@ -1,0 +1,8 @@
+Django>=5.2,<5.3
+django-allauth[socialaccount]>=65
+Pillow>=10
+openpyxl>=3.1
+whitenoise>=6.6
+gunicorn>=22
+qrcode[pil]>=7.4
+reportlab>=4.1

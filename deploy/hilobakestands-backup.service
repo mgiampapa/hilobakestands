@@ -1,0 +1,7 @@
+[Unit]
+Description=Nightly SQLite backup for HiloBakeStands
+
+[Service]
+Type=oneshot
+User=hilobake
+ExecStart=/bin/bash /opt/hilobakestands/app/deploy/backup.sh

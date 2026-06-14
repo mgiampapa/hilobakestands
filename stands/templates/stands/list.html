@@ -1,0 +1,196 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block extra_head %}
+<style>
+  /* Desktop split view: list column + sticky map. Mobile keeps the plain
+     centered list (no map shown, Leaflet never downloaded). */
+  @media (min-width: 1100px) {
+    main { max-width: 1380px; }
+    .toggle-view { display: none; }  /* the map is already on screen */
+    .split { display: grid; grid-template-columns: minmax(380px, 500px) 1fr;
+             gap: 1rem; align-items: start; }
+    .side-map-wrap { position: sticky; top: 1rem;
+                     height: calc(100vh - 8.5rem); }
+    #side-map { height: 100%; border-radius: 12px;
+                border: 1px solid var(--soft); }
+  }
+  @media (max-width: 1099.98px) {
+    .side-map-wrap { display: none; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+{% include "stands/_filters.html" %}
+
+<div class="split">
+  <div class="results">
+    <p class="muted" id="in-view-note" hidden></p>
+    {% for stand in stands %}
+      <div class="card{% if stand.list_thumb %} hasthumb{% endif %}"{% if stand.latitude is not None and stand.longitude is not None %} data-lat="{{ stand.latitude }}" data-lng="{{ stand.longitude }}"{% endif %}>
+        {% if stand.list_thumb %}
+          <a class="listthumb-link" href="{{ stand.get_absolute_url }}" aria-label="{{ stand.name }}"><img class="listthumb" src="{{ stand.list_thumb.url }}" alt="" loading="lazy" width="100" height="100"></a>
+        {% endif %}
+        <h2><a href="{{ stand.get_absolute_url }}">{{ stand.name }}</a></h2>
+        <span class="badge">{{ stand.get_location_type_display }}</span>
+        {% if stand.is_open_now %}
+          <span class="badge open">{% if stand.attendance == 'unattended' %}{% trans "Stocked now" %}{% else %}{% trans "Open now" %}{% endif %}</span>
+        {% else %}
+          <span class="badge closed">{% trans "Closed" %}</span>
+        {% endif %}
+        {% for c in stand.categories.all %}<span class="badge">{{ c.name }}</span>{% endfor %}
+        <p>{{ stand.description|truncatewords:25 }}</p>
+      </div>
+    {% empty %}
+      <p>{% trans "No stands match — try fewer filters." %}</p>
+    {% endfor %}
+  </div>
+  <aside class="side-map-wrap"><div id="side-map"></div></aside>
+</div>
+
+{{ markers|json_script:"marker-data" }}
+<script>
+(function () {
+  const mq = window.matchMedia('(min-width: 1100px)');
+  let booted = false;
+  let map = null, group = null, anyMarkers = false, userDot = null;
+  let geoPos = null;
+  const youLabel = "{% trans 'Your location' %}";
+
+  // ----- Near-me: sort cards by distance (works with or without the map) --
+  const results = document.querySelector('.results');
+  const allCards = Array.from(results.querySelectorAll('.card'));
+  const alphaOrder = allCards.slice();   // server order = alphabetical
+
+  function cardDist(card) {
+    if (!card.dataset.lat || !geoPos) return Infinity;
+    return window.hbsDistMi(geoPos.lat, geoPos.lng,
+                            +card.dataset.lat, +card.dataset.lng);
+  }
+
+  function sortCards() {
+    allCards.forEach(function (c) {
+      const d = c.querySelector('.distance');
+      if (d) d.remove();
+    });
+    let order = alphaOrder;
+    if (geoPos) {
+      const pairs = alphaOrder.map(function (c) { return [cardDist(c), c]; })
+        .sort(function (a, b) { return a[0] - b[0]; });  // stable: ties stay alphabetical
+      pairs.forEach(function (p) {
+        if (p[0] !== Infinity) {
+          const span = document.createElement('span');
+          span.className = 'badge distance';
+          span.textContent = window.hbsFmtMi(p[0]);
+          p[1].querySelector('h2').insertAdjacentElement('afterend', span);
+        }
+      });
+      order = pairs.map(function (p) { return p[1]; });
+    }
+    order.forEach(function (c) { results.appendChild(c); });
+  }
+
+  function recenter() {
+    if (!map) return;
+    if (userDot) { map.removeLayer(userDot); userDot = null; }
+    if (geoPos) {
+      userDot = L.circleMarker([geoPos.lat, geoPos.lng], {
+        radius: 7, color: '#fff', weight: 2,
+        fillColor: '#2e7d5b', fillOpacity: 1
+      }).bindPopup(youLabel).addTo(map);
+      // Center on the visitor only if they're actually near the stands;
+      // a faraway visitor (trip planning) keeps the stands in view —
+      // otherwise list-follows-map would hide every card.
+      const nearest = Math.min.apply(null, alphaOrder.map(cardDist));
+      if (nearest <= 20) { map.setView([geoPos.lat, geoPos.lng], 13); return; }
+    }
+    if (anyMarkers) map.fitBounds(group.getBounds().pad(0.15));
+    else map.setView([19.7074, -155.0885], 12);  // downtown Hilo fallback
+  }
+
+  document.addEventListener('geosort', function (e) {
+    geoPos = e.detail;
+    sortCards();
+    recenter();
+  });
+  if (window.hbsGeoPos) { geoPos = window.hbsGeoPos; sortCards(); }
+
+  function boot() {
+    if (booted || !mq.matches) return;
+    booted = true;
+    // Wait for BOTH files: initializing before the CSS lands leaves the
+    // map mis-laid-out until something forces a redraw.
+    let pending = 2;
+    function ready() { if (--pending === 0) init(); }
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    css.onload = ready;
+    document.head.appendChild(css);
+    const js = document.createElement('script');
+    js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload = ready;
+    document.head.appendChild(js);
+  }
+
+  function init() {
+    const data = JSON.parse(document.getElementById('marker-data').textContent);
+    map = L.map('side-map');
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      referrerPolicy: 'origin',  // OSM 403s referrer-less tile requests
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const openLabel = "{% trans 'Open now' %}",
+          closedLabel = "{% trans 'Closed' %}";
+    const markers = data.map(function (m) {
+      const link = document.createElement('a');
+      link.href = m.url;
+      link.textContent = m.name;
+      const div = document.createElement('div');
+      div.appendChild(link);
+      div.appendChild(document.createElement('br'));
+      const small = document.createElement('small');
+      small.textContent = m.type + ' · ' + (m.open ? openLabel : closedLabel);
+      div.appendChild(small);
+      return L.marker([m.lat, m.lng]).bindPopup(div);
+    });
+    group = L.featureGroup(markers).addTo(map);
+    anyMarkers = markers.length > 0;
+
+    // List follows map: hide cards outside the viewport. Cards without
+    // coordinates have no data-lat and are always shown.
+    const cards = Array.from(document.querySelectorAll('.results .card[data-lat]'));
+    const unpinned = document.querySelectorAll('.results .card:not([data-lat])').length;
+    const note = document.getElementById('in-view-note');
+    const inViewLabel = "{% trans 'stands shown on the map in view' %}";
+    const unpinnedLabel = "{% trans 'not on the map yet (no pin)' %}";
+    function renderVisible() {
+      const bounds = map.getBounds();
+      let shown = 0;
+      cards.forEach(function (card) {
+        const ok = bounds.contains([+card.dataset.lat, +card.dataset.lng]);
+        card.hidden = !ok;
+        if (ok) shown++;
+      });
+      note.hidden = false;
+      let text = shown + '/' + cards.length + ' ' + inViewLabel;
+      if (unpinned) text += ' · ' + unpinned + ' ' + unpinnedLabel;
+      note.textContent = text;
+    }
+    map.on('moveend zoomend', renderVisible);
+
+    // Re-measure whenever the container changes size (window resizes,
+    // hide/show across the breakpoint) so tiles/markers stay aligned.
+    new ResizeObserver(function () { map.invalidateSize(); })
+        .observe(document.getElementById('side-map'));
+
+    recenter();  // user location if near-me is active, else fit stands / Hilo
+    renderVisible();
+  }
+
+  mq.addEventListener('change', boot);
+  document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
+{% endblock %}

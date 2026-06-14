@@ -1,0 +1,11 @@
+# /etc/cloudflared/config.yml
+# Replace TUNNEL_ID with the id from `cloudflared tunnel create hilobakestands`
+tunnel: TUNNEL_ID
+credentials-file: /etc/cloudflared/TUNNEL_ID.json
+
+ingress:
+  - hostname: hilobakestands.com
+    service: http://127.0.0.1:8000
+  - hostname: www.hilobakestands.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404

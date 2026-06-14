@@ -1,0 +1,21 @@
+[Unit]
+Description=HiloBakeStands (gunicorn)
+After=network.target
+
+[Service]
+User=hilobake
+Group=hilobake
+WorkingDirectory=/opt/hilobakestands/app
+EnvironmentFile=/opt/hilobakestands/.env
+ExecStart=/opt/hilobakestands/venv/bin/gunicorn config.wsgi:application \
+  --bind 127.0.0.1:8000 --workers 2 --timeout 60
+Restart=always
+RestartSec=3
+
+# hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/hilobakestands/data /opt/hilobakestands/media
+
+[Install]
+WantedBy=multi-user.target

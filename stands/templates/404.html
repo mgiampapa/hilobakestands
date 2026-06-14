@@ -1,0 +1,10 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Page not found" %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% trans "Page not found" %}</h2>
+  <p>{% trans "That page doesn't exist — maybe the stand was renamed, or the link has a typo." %}</p>
+  <p><a class="btn" href="{% url 'stand_list' %}">{% trans "Browse the stands" %}</a> <a class="btn" href="{% url 'stand_map' %}">{% trans "See the map" %}</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% blocktrans with name=stand.name %}Edit {{ name }}{% endblocktrans %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% blocktrans with name=stand.name %}Edit {{ name }}{% endblocktrans %}</h2>
+  <p class="muted">{% trans "Changes go live immediately." %}</p>
+
+  <form method="post" class="ownerform">{% csrf_token %}
+    {% if needs_confirm %}
+      <div class="warnbox">
+        <p><strong>{% blocktrans with name=stand.name %}Hide {{ name }} from the site?{% endblocktrans %}</strong></p>
+        <p>{% trans "Your stand will disappear from the list, the map, and the open-now filter immediately — visitors won't be able to find it anywhere on the site. Your info stays saved, and you can re-list it here whenever you're ready." %}</p>
+        <button type="submit" name="confirm_hide" value="1" class="btn btn-primary">{% trans "Yes — hide my stand" %}</button>
+        <a class="btn" href="{% url 'my_stands' %}">{% trans "Never mind, keep it listed" %}</a>
+      </div>
+    {% endif %}
+    {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn btn-primary">{% trans "Save changes" %}</button>
+    <a class="btn" href="{% url 'my_stands' %}">{% trans "Cancel" %}</a>
+  </form>
+
+  <p class="muted namechange">{% blocktrans %}Need to change your stand's name?{% endblocktrans %}
+    {% if stand.status == 'published' %}
+      <a href="{% url 'stand_report' stand.slug %}">{% trans "Get in touch through the feedback form" %}</a>
+    {% else %}
+      {% blocktrans %}Email <a href="mailto:matt@hilobakestands.com">matt@hilobakestands.com</a>{% endblocktrans %}
+    {% endif %}
+    {% trans "— renames also change your listing's web address, so we handle them by hand." %}</p>
+</div>
+{% endblock %}

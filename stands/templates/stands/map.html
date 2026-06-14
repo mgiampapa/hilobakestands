@@ -1,0 +1,152 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Map" %} — HiloBakeStands{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+{% endblock %}
+{% block content %}
+<script>
+// Desktop screens get the split view on the front page instead; this
+// standalone map page is the mobile experience. Bounce wide viewports
+// back (preserving filters) so resizing never strands anyone here.
+(function () {
+  const mq = window.matchMedia('(min-width: 1100px)');
+  function maybeReturn() {
+    if (mq.matches) {
+      window.location.replace('{% url "stand_list" %}' + window.location.search);
+    }
+  }
+  mq.addEventListener('change', maybeReturn);
+  maybeReturn();
+})();
+</script>
+{% include "stands/_filters.html" with map_page=1 %}
+
+<div id="map"></div>
+
+<p class="muted" id="in-view-count"></p>
+<div id="in-view-list"></div>
+
+{% if unmapped %}
+  <p class="muted">
+    {% blocktrans count n=unmapped|length %}{{ n }} matching stand has no map location yet:{% plural %}{{ n }} matching stands have no map location yet:{% endblocktrans %}
+    {% for s in unmapped %}<a href="{{ s.get_absolute_url }}">{{ s.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+  </p>
+{% endif %}
+
+{{ markers|json_script:"marker-data" }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const data = JSON.parse(document.getElementById('marker-data').textContent);
+  const map = L.map('map');
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    // Django's Referrer-Policy: same-origin strips the Referer on
+    // cross-origin requests; OSM 403s referrer-less tile requests.
+    referrerPolicy: 'origin',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  const openLabel = "{% trans 'Open now' %}", closedLabel = "{% trans 'Closed' %}";
+  const markers = data.map(function (m) {
+    const link = document.createElement('a');
+    link.href = m.url;
+    link.textContent = m.name;          // textContent = safe, no HTML injection
+    const div = document.createElement('div');
+    div.appendChild(link);
+    div.appendChild(document.createElement('br'));
+    const small = document.createElement('small');
+    small.textContent = m.type + ' · ' + (m.open ? openLabel : closedLabel);
+    div.appendChild(small);
+    return L.marker([m.lat, m.lng]).bindPopup(div);
+  });
+  const group = L.featureGroup(markers).addTo(map);
+
+  // List-follows-map: the cards below show only stands inside the viewport.
+  const listEl = document.getElementById('in-view-list');
+  const countEl = document.getElementById('in-view-count');
+  const inViewLabel = "{% trans 'stands in view' %}";
+  const noneLabel = "{% trans 'No stands in view — zoom out or pan the map.' %}";
+
+  function renderVisible() {
+    const bounds = map.getBounds();
+    const visible = data.filter(m => bounds.contains([m.lat, m.lng]));
+    if (geoPos) {  // near-me active: closest first
+      visible.forEach(function (m) {
+        m._mi = window.hbsDistMi(geoPos.lat, geoPos.lng, m.lat, m.lng);
+      });
+      visible.sort(function (a, b) { return a._mi - b._mi; });
+    }
+    listEl.textContent = '';
+    countEl.textContent = visible.length
+      ? visible.length + ' ' + inViewLabel : noneLabel;
+    visible.forEach(function (m) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const h = document.createElement('h2');
+      const a = document.createElement('a');
+      a.href = m.url;
+      a.textContent = m.name;
+      h.appendChild(a);
+      card.appendChild(h);
+      const type = document.createElement('span');
+      type.className = 'badge';
+      type.textContent = m.type;
+      card.appendChild(type);
+      const open = document.createElement('span');
+      open.className = 'badge ' + (m.open ? 'open' : 'closed');
+      open.textContent = m.open ? openLabel : closedLabel;
+      card.appendChild(open);
+      if (geoPos && m._mi !== undefined) {
+        const mi = document.createElement('span');
+        mi.className = 'badge distance';
+        mi.textContent = window.hbsFmtMi(m._mi);
+        card.appendChild(mi);
+      }
+      listEl.appendChild(card);
+    });
+  }
+  map.on('moveend zoomend', renderVisible);
+
+  // ----- Near-me: center on the visitor and sort the in-view list ---------
+  let geoPos = null, userDot = null;
+  const youLabel = "{% trans 'Your location' %}";
+
+  function refit() {
+    if (markers.length) map.fitBounds(group.getBounds().pad(0.15));
+    else map.setView([19.7074, -155.0885], 12);  // downtown Hilo fallback
+  }
+
+  function applyGeo(pos) {
+    geoPos = pos;
+    if (userDot) { map.removeLayer(userDot); userDot = null; }
+    if (geoPos) {
+      userDot = L.circleMarker([geoPos.lat, geoPos.lng], {
+        radius: 7, color: '#fff', weight: 2,
+        fillColor: '#2e7d5b', fillOpacity: 1
+      }).bindPopup(youLabel).addTo(map);
+      // Only center on the visitor if they're near the stands; faraway
+      // visitors keep the stands in view (an empty map helps no one).
+      const nearest = data.length ? Math.min.apply(null, data.map(function (m) {
+        return window.hbsDistMi(geoPos.lat, geoPos.lng, m.lat, m.lng);
+      })) : Infinity;
+      if (nearest <= 20) map.setView([geoPos.lat, geoPos.lng], 13);
+      else refit();
+    } else {
+      refit();
+    }
+    renderVisible();
+  }
+
+  document.addEventListener('geosort', function (e) { applyGeo(e.detail); });
+
+  if (window.hbsGeoPos) {
+    applyGeo(window.hbsGeoPos);  // near-me resolved before the map booted
+  } else {
+    refit();
+    renderVisible();
+  }
+});
+</script>
+{% endblock %}

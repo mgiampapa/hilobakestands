@@ -1,0 +1,22 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block content %}
+<div class="card">
+  <h1>{% blocktrans with name=stand.name %}Report a problem with {{ name }}{% endblocktrans %}</h1>
+  <form method="post">
+    {% csrf_token %}
+    <p><label>{% trans "What's wrong?" %}<br>
+      <textarea name="message" rows="4" style="width:100%" required></textarea></label></p>
+    <p><label>{% trans "Your contact (optional)" %}<br>
+      <input name="contact" style="width:100%"></label></p>
+    <p style="display:none"><label>Website<input name="website_url"></label></p>
+    {% if turnstile_site_key %}
+    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
+    {% endif %}
+    <button class="btn btn-primary" type="submit">{% trans "Send" %}</button>
+  </form>
+</div>
+{% if turnstile_site_key %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Claim link not valid" %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% trans "This claim link has already been used or can't be found" %}</h2>
+  <p>{% trans "Claim links only work once. If you got this link from us and it isn't working, the most likely reasons are:" %}</p>
+  <p>{% trans "It was already used to claim the stand — if that was you, you're all set: sign in and your stand is linked to your account." %}</p>
+  <p>{% trans "Or the link was retyped with a small mistake — links are case-sensitive, so try scanning the QR code or tapping the link directly instead." %}</p>
+  <p class="muted">{% blocktrans %}Still stuck? Email <a href="mailto:matt@hilobakestands.com">matt@hilobakestands.com</a> and we'll sort it out.{% endblocktrans %}</p>
+  <p><a class="btn" href="{% url 'stand_list' %}">{% trans "Browse the stands" %}</a></p>
+</div>
+{% endblock %}
