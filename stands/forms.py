@@ -144,8 +144,7 @@ class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
 
     # Bare domain OK, assume http:// (see StandSubmitForm).
     website = forms.URLField(
-        required=False, assume_scheme='http', label=_('Website'),
-        help_text=_('Just the domain is fine — e.g. mybakestand.com'))
+        required=False, assume_scheme='http', label=_('Website'))
 
     class Meta:
         model = Stand
@@ -193,8 +192,7 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
     # Accept a bare domain (or domain/path) and assume http:// — no reason to
     # make people type the scheme; their server redirects to https if it wants.
     website = forms.URLField(
-        required=False, assume_scheme='http', label=_('Website'),
-        help_text=_('Just the domain is fine — e.g. mybakestand.com'))
+        required=False, assume_scheme='http', label=_('Website'))
 
     class Meta:
         model = Stand

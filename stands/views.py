@@ -207,16 +207,58 @@ def _notify_new_submission(request, stand):
         fail_silently=True)
 
 
+def _nearby_stand(lat, lng, meters=25):
+    """An existing published stand within `meters` of (lat, lng), or None —
+    a non-blocking duplicate hint for the submit flow (haversine, ~25 stands)."""
+    import math
+    for s in (Stand.objects.filter(status=Stand.Status.PUBLISHED)
+              .exclude(latitude__isnull=True)):
+        dlat = math.radians(float(s.latitude) - lat)
+        dlng = math.radians(float(s.longitude) - lng)
+        a = (math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat))
+             * math.cos(math.radians(float(s.latitude))) * math.sin(dlng / 2) ** 2)
+        if 2 * 6371000 * math.asin(math.sqrt(a)) <= meters:
+            return s
+    return None
+
+
 def submit_stand(request):
     """Public 'Submit a stand' (login-gated). Creates an UNVERIFIED, published
-    community listing; Matthew verifies later or the owner claims it."""
+    community listing; Matthew verifies later or the owner claims it. An
+    optional map pin (drag/tap/GPS) sets exact coords (owner_pin precedence);
+    without one the address is geocoded later by the batch command."""
     if not request.user.is_authenticated:
         return render(request, 'stands/submit_signin.html')
+    from decimal import Decimal
     from django.utils import timezone
     from .forms import StandSubmitForm
     if request.method == 'POST':
         form = StandSubmitForm(request.POST)
         if form.is_valid():
+            # Optional pin: parse + Big Island bbox check (reuses owner-pin rules)
+            lat = lng = None
+            lat_raw = request.POST.get('latitude', '').strip()
+            lng_raw = request.POST.get('longitude', '').strip()
+            if lat_raw and lng_raw:
+                try:
+                    lat, lng = float(lat_raw), float(lng_raw)
+                except ValueError:
+                    lat = lng = None
+                else:
+                    lo, hi = BIG_ISLAND_BOUNDS['lat']
+                    wlo, whi = BIG_ISLAND_BOUNDS['lng']
+                    if not (lo <= lat <= hi and wlo <= lng <= whi):
+                        return render(request, 'stands/submit.html', {
+                            'form': form, 'pin_error': _(
+                                "That pin doesn't look like it's on the Big "
+                                "Island — drag it to the stand and try again.")})
+            # Non-blocking 25m duplicate warning (only when a pin is placed)
+            if lat is not None:
+                nearby = _nearby_stand(lat, lng)
+                if nearby and not request.POST.get('confirm_duplicate'):
+                    return render(request, 'stands/submit.html', {
+                        'form': form, 'needs_dup_confirm': True,
+                        'nearby': nearby})
             stand = form.save(commit=False)
             stand.slug = _unique_slug(stand.name)
             stand.status = Stand.Status.PUBLISHED
@@ -225,6 +267,10 @@ def submit_stand(request):
             stand.created_by = request.user
             stand.updated_by = request.user
             stand.submitted_at = timezone.now()
+            if lat is not None:
+                stand.latitude = Decimal(f'{lat:.6f}')
+                stand.longitude = Decimal(f'{lng:.6f}')
+                stand.coords_source = Stand.CoordsSource.OWNER_PIN
             stand.generate_claim_token()  # lets Matthew hand the owner a claim link
             stand.save()
             form.save_m2m()

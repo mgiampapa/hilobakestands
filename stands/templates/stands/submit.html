@@ -1,12 +1,16 @@
 {% extends "stands/base.html" %}
 {% load i18n %}
 {% block title %}{% trans "Submit a stand" %} — HiloBakeStands{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
+{% endblock %}
 {% block content %}
 <div class="card">
   <h2>{% trans "Submit a stand" %}</h2>
   <p class="muted">{% trans "Know a bake stand, food truck, farm stand, or pop-up that isn't listed? Add it here. It shows up right away as an unverified community listing while we confirm the details." %}</p>
 
-  <form method="post" class="ownerform">{% csrf_token %}
+  <form method="post" class="ownerform" id="submit-form">{% csrf_token %}
     {% for field in form %}
       <div class="field">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -16,8 +20,88 @@
         {{ field.errors }}
       </div>
     {% endfor %}
-    <button type="submit" class="btn btn-primary">{% trans "Submit stand" %}</button>
+
+    <div class="field">
+      <label>{% trans "Pin the location" %}</label>
+      <p class="muted">{% trans "Recommended — drag the pin (or tap the map) to the exact spot so it lands on the map precisely. Standing there now? Use the location button. Skip it and we'll place it from the address later." %}</p>
+      <div id="pin-map"></div>
+      <input type="hidden" name="latitude" id="id_latitude" value="{{ request.POST.latitude }}">
+      <input type="hidden" name="longitude" id="id_longitude" value="{{ request.POST.longitude }}">
+      <div class="today-actions" style="margin-top:0.6rem;">
+        <button type="button" class="btn" id="gps-btn">📍 {% trans "Use my current location" %}</button>
+      </div>
+      <p class="muted" id="pin-status"></p>
+      {% if pin_error %}<p class="fielderror">{{ pin_error }}</p>{% endif %}
+    </div>
+
+    {% if needs_dup_confirm %}
+      <div class="warnbox">
+        <p><strong>{% blocktrans with name=nearby.name %}There's already a stand within 25 m: {{ name }}.{% endblocktrans %}</strong></p>
+        <p>{% trans "If that's the same place, no need to add it again. If it's genuinely a different stand, go ahead." %}</p>
+        <button type="submit" name="confirm_duplicate" value="1" class="btn btn-primary" id="confirm-dup">{% trans "Submit anyway" %}</button>
+      </div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary" id="submit-btn">{% trans "Submit stand" %}</button>
     <a class="btn" href="{% url 'stand_list' %}">{% trans "Cancel" %}</a>
   </form>
 </div>
+
+<style>#pin-map { height: 45vh; min-height: 280px; border-radius: 12px; border: 1px solid var(--soft); }</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const latIn = document.getElementById('id_latitude');
+  const lngIn = document.getElementById('id_longitude');
+  const status = document.getElementById('pin-status');
+  const gpsBtn = document.getElementById('gps-btn');
+  const HILO = [19.7074, -155.0885];
+  const placedMsg = "{% trans 'Pin placed — your stand will land here on the map.' %}";
+  const gpsFail = "{% trans 'Location unavailable — drag the pin instead.' %}";
+
+  const has = latIn.value !== '' && lngIn.value !== '';
+  const start = has ? [parseFloat(latIn.value), parseFloat(lngIn.value)] : HILO;
+  const map = L.map('pin-map').setView(start, has ? 17 : 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, referrerPolicy: 'origin',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  const pin = L.marker(start, { draggable: true }).addTo(map);
+  if (has) status.textContent = placedMsg;
+
+  function setCoords(ll) {
+    latIn.value = ll.lat.toFixed(6);
+    lngIn.value = ll.lng.toFixed(6);
+    status.textContent = placedMsg;
+  }
+  pin.on('dragend', function () { setCoords(pin.getLatLng()); });
+  map.on('click', function (e) { pin.setLatLng(e.latlng); setCoords(e.latlng); });
+
+  if ('geolocation' in navigator) {
+    gpsBtn.addEventListener('click', function () {
+      gpsBtn.disabled = true;
+      navigator.geolocation.getCurrentPosition(function (p) {
+        gpsBtn.disabled = false;
+        const ll = [p.coords.latitude, p.coords.longitude];
+        pin.setLatLng(ll); map.setView(ll, 18);
+        setCoords({lat: ll[0], lng: ll[1]});
+      }, function () {
+        gpsBtn.disabled = false; status.textContent = gpsFail;
+      }, {enableHighAccuracy: true, timeout: 10000});
+    });
+  } else { gpsBtn.hidden = true; }
+
+  // Submit throbber: the URL-safety lookup + save take a beat. Disable AFTER
+  // the submit dispatches (setTimeout 0) so a named button's value still sends.
+  document.getElementById('submit-form').addEventListener('submit', function () {
+    const btn = document.getElementById('submit-btn');
+    if (btn) btn.textContent = "{% trans 'Submitting…' %}";
+    setTimeout(function () {
+      [btn, document.getElementById('confirm-dup')].forEach(function (b) {
+        if (b) b.disabled = true;
+      });
+    }, 0);
+  });
+});
+</script>
 {% endblock %}

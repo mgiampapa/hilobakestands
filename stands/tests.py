@@ -344,6 +344,37 @@ class SubmitStandTests(TestCase):
         self.assertFalse(Stand.objects.filter(name='Sketchy').exists())
         self.assertContains(r, 'adult or unsafe')
 
+    def test_pin_saved_as_owner_pin(self):
+        self.client.force_login(self._user())
+        self.client.post(reverse('submit_stand'), {
+            'name': 'Pinned', 'location_type': 'popup', 'attendance': 'attended',
+            'latitude': '19.710000', 'longitude': '-155.090000'}, follow=True)
+        s = Stand.objects.get(name='Pinned')
+        self.assertEqual(float(s.latitude), 19.71)
+        self.assertEqual(s.coords_source, Stand.CoordsSource.OWNER_PIN)
+
+    def test_off_island_pin_rejected(self):
+        self.client.force_login(self._user())
+        r = self.client.post(reverse('submit_stand'), {
+            'name': 'Mainland', 'location_type': 'popup',
+            'attendance': 'attended',
+            'latitude': '34.05', 'longitude': '-118.24'})  # Los Angeles
+        self.assertFalse(Stand.objects.filter(name='Mainland').exists())
+        self.assertContains(r, 'Big Island')
+
+    def test_proximity_warning_then_confirm(self):
+        make_stand(name='Existing', latitude='19.710000', longitude='-155.090000')
+        self.client.force_login(self._user())
+        data = {'name': 'Maybe Dup', 'location_type': 'popup',
+                'attendance': 'attended',
+                'latitude': '19.710001', 'longitude': '-155.090001'}
+        r = self.client.post(reverse('submit_stand'), data)
+        self.assertContains(r, 'within 25')                          # warned
+        self.assertFalse(Stand.objects.filter(name='Maybe Dup').exists())
+        data['confirm_duplicate'] = '1'
+        self.client.post(reverse('submit_stand'), data, follow=True)
+        self.assertTrue(Stand.objects.filter(name='Maybe Dup').exists())  # created
+
 
 class UrlSafetyCheckTests(TestCase):
     """url_domain_blocked parses the Cloudflare '1.1.1.3 for Families' DoH
