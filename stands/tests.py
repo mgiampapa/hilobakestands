@@ -1339,6 +1339,36 @@ class EditPinTests(TestCase):
         self.assertContains(r, 'Move map pin')  # has coords already
 
 
+class ClaimYourStandTests(TestCase):
+    """Info page + the 'Is this your stand?' breadcrumb on unclaimed stands."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.User = get_user_model()
+        self.stand = make_stand(name='Unclaimed Stand', slug='unclaimed-stand')
+
+    def test_info_page_renders(self):
+        r = self.client.get(reverse('claim_your_stand'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Is this your stand?')
+        self.assertContains(r, 'matt@hilobakestands.com')
+        self.assertContains(r, 'instagram.com/hilobakestands')
+        # free + the hide/re-submit honesty + cashbox drop-off all present
+        self.assertContains(r, 'free')
+        self.assertContains(r, 'cashbox')
+
+    def test_unclaimed_stand_shows_breadcrumb(self):
+        r = self.client.get(self.stand.get_absolute_url())
+        self.assertContains(r, 'Is this your stand?')
+        self.assertContains(r, reverse('claim_your_stand'))
+
+    def test_claimed_stand_hides_breadcrumb(self):
+        self.stand.owner = self.User.objects.create_user(username='owner7')
+        self.stand.save(update_fields=['owner'])
+        r = self.client.get(self.stand.get_absolute_url())
+        self.assertNotContains(r, reverse('claim_your_stand'))
+
+
 class OwnerDetailEntryTests(TestCase):
     """Detail page shows an Edit details entry point to the owner only."""
 

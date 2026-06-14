@@ -80,7 +80,14 @@
     </figure>
   {% endfor %}
 
-  <p style="margin-top:1.5rem">
+  {% if not stand.owner_id %}
+    <p class="claimrow" style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e8e0d2">
+      🤙 {% trans "Is this your stand?" %}
+      <a href="{% url 'claim_your_stand' %}">{% trans "Claim it and manage your listing." %}</a>
+    </p>
+  {% endif %}
+
+  <p style="margin-top:1rem">
     <a href="{% url 'stand_report' stand.slug %}">{% trans "Something wrong with this listing? Let us know." %}</a>
   </p>
 </div>

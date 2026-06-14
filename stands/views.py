@@ -116,6 +116,17 @@ def stand_detail(request, slug):
     })
 
 
+def claim_your_stand(request):
+    """Static 'how to claim your stand' info page.
+
+    Owners who find their seeded (or community-submitted) listing before they
+    get a claim flyer land here from the breadcrumb on unclaimed stands. The
+    actual claim still needs a token Matthew hands out — this page just tells
+    them how to reach him to get it (SPEC v1.0 Open Q3: owner-initiated claim).
+    """
+    return render(request, 'stands/claim_your_stand.html')
+
+
 def stand_report(request, slug):
     stand = get_object_or_404(Stand, slug=slug, status=Stand.Status.PUBLISHED)
     if request.method == 'POST':
