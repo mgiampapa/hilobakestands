@@ -653,6 +653,21 @@ class ClaimFlowTests(TestCase):
         # token is one-time: the old URL is dead
         self.assertEqual(self.client.get(self.claim_url()).status_code, 404)
 
+    def test_claim_verifies_stand(self):
+        # SPEC-1.1 §6: completing a claim flips unverified -> verified.
+        self.stand.verification = Stand.Verification.UNVERIFIED
+        self.stand.verified_via = ''
+        self.stand.verified_at = None
+        self.stand.save(update_fields=['verification', 'verified_via',
+                                       'verified_at'])
+        user = self.User.objects.create_user(username='baker2', email='b2@x.com')
+        self.client.force_login(user)
+        self.client.post(self.claim_url())
+        self.stand.refresh_from_db()
+        self.assertEqual(self.stand.verification, Stand.Verification.VERIFIED)
+        self.assertEqual(self.stand.verified_via, Stand.VerifiedVia.CLAIM)
+        self.assertIsNotNone(self.stand.verified_at)
+
     def test_anonymous_post_does_not_claim(self):
         self.client.post(self.claim_url())
         self.stand.refresh_from_db()

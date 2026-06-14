@@ -169,7 +169,12 @@ def stand_claim(request, token):
         stand.owner = request.user
         stand.claim_token = None
         stand.claimed_at = timezone.now()
+        # Completing a claim also verifies the stand (SPEC-1.1 §6): an operator
+        # claiming their own listing flips unverified -> verified. save=False so
+        # it lands in the single atomic save below.
+        stand.mark_verified(via=Stand.VerifiedVia.CLAIM, save=False)
         stand.save(update_fields=['owner', 'claim_token', 'claimed_at',
+                                  'verification', 'verified_via', 'verified_at',
                                   'updated_at'])
         messages.success(request, _(
             'You now manage %(name)s. Owner tools are coming soon — '
