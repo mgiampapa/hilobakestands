@@ -122,6 +122,7 @@
 <header>
   <a class="brand" href="{% url 'stand_list' %}"><img src="{% static 'stands/hibiscus.svg' %}" alt="" class="brand-flower"> HiloBakeStands</a>
   <div class="auth">
+    <a class="authbtn addstand" href="{% url 'submit_stand' %}">+ {% trans "Add a stand" %}</a>
     {% if user.is_authenticated %}
       {% if user.owned_stands.exists %}
         <a class="authbtn mystand" href="{% url 'my_stands' %}">{% trans "My stand" %}</a>
@@ -141,6 +142,7 @@
   {% if messages %}<ul class="messages">{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
   {% block content %}{% endblock %}
 </main>
-<footer>{% trans "Hilo's local ono grindz — bake stands, food trucks, farm stands & pop-ups." %}</footer>
+<footer>{% trans "Hilo's local ono grindz — bake stands, food trucks, farm stands & pop-ups." %}
+  · <a href="{% url 'submit_stand' %}">{% trans "Know a stand? Add it." %}</a></footer>
 </body>
 </html>

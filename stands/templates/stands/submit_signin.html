@@ -1,0 +1,12 @@
+{% extends "stands/base.html" %}
+{% load i18n socialaccount %}
+{% block title %}{% trans "Submit a stand" %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{% trans "Submit a stand" %}</h2>
+  <p>{% trans "Sign in with Google to add a stand. It keeps submissions accountable, and lets the real owner claim their listing later." %}</p>
+  <form method="post" action="{% provider_login_url 'google' next=request.get_full_path %}">{% csrf_token %}
+    <button type="submit" class="btn btn-primary">{% trans "Sign in with Google" %}</button>
+  </form>
+</div>
+{% endblock %}

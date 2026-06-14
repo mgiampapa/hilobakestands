@@ -32,7 +32,45 @@ def _clean_handle(value, domains, pattern, label):
     return v
 
 
-class StandBasicInfoForm(forms.ModelForm):
+class SanitizedStandFieldsMixin:
+    """Input sanitization shared by the owner-edit and public-submit forms.
+    Social handles are whitelisted to handle characters (they get interpolated
+    into hrefs on the public page), phone is restricted to dial characters, and
+    control characters are stripped from free text. Output relies on Django's
+    autoescaping."""
+
+    def clean_instagram(self):
+        return _clean_handle(self.cleaned_data.get('instagram'),
+                             ['instagram.com', 'instagr.am'],
+                             r'[A-Za-z0-9._]{1,30}', _('Instagram handle'))
+
+    def clean_tiktok(self):
+        return _clean_handle(self.cleaned_data.get('tiktok'),
+                             ['tiktok.com'],
+                             r'[A-Za-z0-9._]{1,24}', _('TikTok handle'))
+
+    def clean_facebook(self):
+        # FB vanity URLs allow dots and hyphens; numeric page IDs too.
+        return _clean_handle(self.cleaned_data.get('facebook'),
+                             ['facebook.com', 'fb.com', 'm.facebook.com'],
+                             r'[A-Za-z0-9.\-]{1,80}', _('Facebook page'))
+
+    def clean_phone(self):
+        v = (self.cleaned_data.get('phone') or '').strip()
+        if v and not re.fullmatch(r'[0-9+\-(). ]{7,30}', v):
+            raise ValidationError(
+                _('Phone numbers can only contain digits, spaces, and '
+                  '+ - ( ) characters.'))
+        return v
+
+    def clean_description(self):
+        v = self.cleaned_data.get('description') or ''
+        # Strip control characters (keep newlines and tabs); cap length.
+        v = ''.join(ch for ch in v if ch in '\n\r\t' or ord(ch) >= 32)
+        return v[:2000]
+
+
+class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
     """Owner dashboard: the fields an owner may edit directly.
 
     Owners control their own listing — including type and whether it's
@@ -92,32 +130,48 @@ class StandBasicInfoForm(forms.ModelForm):
         else:
             self.fields['status'].choices = self.OWNER_STATUS_CHOICES
 
-    def clean_instagram(self):
-        return _clean_handle(self.cleaned_data.get('instagram'),
-                             ['instagram.com', 'instagr.am'],
-                             r'[A-Za-z0-9._]{1,30}', _('Instagram handle'))
 
-    def clean_tiktok(self):
-        return _clean_handle(self.cleaned_data.get('tiktok'),
-                             ['tiktok.com'],
-                             r'[A-Za-z0-9._]{1,24}', _('TikTok handle'))
+class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
+    """Public 'Submit a stand' form (Slice 2). A logged-in visitor proposes a
+    new listing; it's created UNVERIFIED and published, pending Matthew's review
+    or an owner claim. Reuses the same input sanitization as the owner form."""
 
-    def clean_facebook(self):
-        # FB vanity URLs allow dots and hyphens; numeric page IDs too.
-        return _clean_handle(self.cleaned_data.get('facebook'),
-                             ['facebook.com', 'fb.com', 'm.facebook.com'],
-                             r'[A-Za-z0-9.\-]{1,80}', _('Facebook page'))
+    class Meta:
+        model = Stand
+        fields = ['name', 'location_type', 'description', 'street_address',
+                  'attendance', 'categories', 'payment_methods',
+                  'phone', 'instagram', 'facebook', 'tiktok', 'website', 'email']
+        widgets = {
+            'description': forms.Textarea(attrs={'rows': 5, 'maxlength': 2000}),
+            'categories': forms.CheckboxSelectMultiple,
+            'payment_methods': forms.CheckboxSelectMultiple,
+            'attendance': forms.RadioSelect,
+        }
+        labels = {
+            'name': _('Stand name'),
+            'location_type': _('Type'),
+            'description': _('What do they sell?'),
+            'street_address': _('Address or where to find it'),
+            'attendance': _('Staffed or honor stand?'),
+            'categories': _('Food categories'),
+            'payment_methods': _('Payment accepted (if known)'),
+            'instagram': _('Instagram'), 'facebook': _('Facebook'),
+            'tiktok': _('TikTok'), 'website': _('Website'), 'email': _('Email'),
+        }
+        help_texts = {
+            'description': _('A sentence or two is plenty.'),
+            'street_address': _('A street address geocodes best; a landmark '
+                                'works too — you can drop an exact pin next.'),
+        }
 
-    def clean_phone(self):
-        v = (self.cleaned_data.get('phone') or '').strip()
-        if v and not re.fullmatch(r'[0-9+\-(). ]{7,30}', v):
-            raise ValidationError(
-                _('Phone numbers can only contain digits, spaces, and '
-                  '+ - ( ) characters.'))
-        return v
+    def clean_name(self):
+        v = (self.cleaned_data.get('name') or '').strip()
+        v = ''.join(ch for ch in v if ch == '\t' or ord(ch) >= 32)  # one line
+        if not v:
+            raise ValidationError(_('Please enter the stand name.'))
+        return v[:120]
 
-    def clean_description(self):
-        v = self.cleaned_data.get('description') or ''
-        # Strip control characters (keep newlines and tabs); cap length.
-        v = ''.join(ch for ch in v if ch in '\n\r\t' or ord(ch) >= 32)
-        return v[:2000]
+    def clean_street_address(self):
+        v = (self.cleaned_data.get('street_address') or '').strip()
+        v = ''.join(ch for ch in v if ch == '\t' or ord(ch) >= 32)
+        return v[:200]

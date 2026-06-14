@@ -179,6 +179,66 @@ def stand_claim(request, token):
     return render(request, 'stands/claim.html', {'stand': stand})
 
 
+def _unique_slug(name):
+    """Slug from name, guaranteed unique (public submissions can collide)."""
+    from django.utils.text import slugify
+    base = slugify(name)[:130] or 'stand'
+    slug, i = base, 2
+    while Stand.objects.filter(slug=slug).exists():
+        suffix = '-%d' % i
+        slug = base[:130 - len(suffix)] + suffix
+        i += 1
+    return slug
+
+
+def _notify_new_submission(request, stand):
+    """Email Matthew about a new community submission (never blocks the user)."""
+    admin_url = request.build_absolute_uri(
+        reverse('admin:stands_stand_change', args=[stand.pk]))
+    claim_url = settings.SITE_BASE_URL + stand.claim_url_path
+    mail_admins(
+        subject=f'New community submission: {stand.name}',
+        message=(f'{stand.name} — {stand.get_location_type_display()}\n'
+                 f'Submitted by: {stand.created_by.email or stand.created_by}\n'
+                 f'Address: {stand.street_address or "(none given)"}\n\n'
+                 f'{stand.description or "(no description)"}\n\n'
+                 f'Review / verify: {admin_url}\n'
+                 f'Claim link to send the owner: {claim_url}'),
+        fail_silently=True)
+
+
+def submit_stand(request):
+    """Public 'Submit a stand' (login-gated). Creates an UNVERIFIED, published
+    community listing; Matthew verifies later or the owner claims it."""
+    if not request.user.is_authenticated:
+        return render(request, 'stands/submit_signin.html')
+    from django.utils import timezone
+    from .forms import StandSubmitForm
+    if request.method == 'POST':
+        form = StandSubmitForm(request.POST)
+        if form.is_valid():
+            stand = form.save(commit=False)
+            stand.slug = _unique_slug(stand.name)
+            stand.status = Stand.Status.PUBLISHED
+            stand.verification = Stand.Verification.UNVERIFIED
+            stand.created_via = Stand.CreatedVia.PUBLIC_SUBMIT
+            stand.created_by = request.user
+            stand.updated_by = request.user
+            stand.submitted_at = timezone.now()
+            stand.generate_claim_token()  # lets Matthew hand the owner a claim link
+            stand.save()
+            form.save_m2m()
+            _notify_new_submission(request, stand)
+            messages.success(request, _(
+                'Mahalo! "%(name)s" is submitted and now showing as an '
+                'unverified community listing. We may reach out to confirm '
+                'details.') % {'name': stand.name})
+            return redirect(stand.get_absolute_url())
+    else:
+        form = StandSubmitForm()
+    return render(request, 'stands/submit.html', {'form': form})
+
+
 def my_stands(request):
     """Owner dashboard. Anonymous visitors get a styled Google sign-in
     (POST straight to the provider — skips allauth's bare interstitial,

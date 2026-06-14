@@ -270,6 +270,62 @@ class VerifiedFilteringTests(TestCase):
         self.assertNotContains(r, 'Community Stand')
 
 
+class SubmitStandTests(TestCase):
+    """Slice 2a: public submission form, create-as-unverified, notify."""
+
+    def _user(self):
+        from django.contrib.auth import get_user_model
+        return get_user_model().objects.create_user(
+            username='lani', email='lani@example.com', first_name='Lani')
+
+    def test_anonymous_sees_signin_not_form(self):
+        r = self.client.get(reverse('submit_stand'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Sign in with Google')
+        self.assertNotContains(r, 'Stand name')
+
+    def test_authenticated_sees_form(self):
+        self.client.force_login(self._user())
+        self.assertContains(self.client.get(reverse('submit_stand')), 'Stand name')
+
+    def test_submit_creates_unverified_community_stand_and_notifies(self):
+        from django.core import mail
+        user = self._user()
+        self.client.force_login(user)
+        r = self.client.post(reverse('submit_stand'), {
+            'name': 'Lani Lilikoi', 'location_type': 'bake_stand',
+            'description': 'Lilikoi bars', 'street_address': '1 Main St, Hilo',
+            'attendance': 'attended',
+            'instagram': 'https://instagram.com/lanibakes'})
+        stand = Stand.objects.get(name='Lani Lilikoi')
+        self.assertRedirects(r, stand.get_absolute_url())
+        self.assertEqual(stand.verification, Stand.Verification.UNVERIFIED)
+        self.assertEqual(stand.created_via, Stand.CreatedVia.PUBLIC_SUBMIT)
+        self.assertEqual(stand.created_by, user)
+        self.assertEqual(stand.status, Stand.Status.PUBLISHED)
+        self.assertIsNotNone(stand.submitted_at)
+        self.assertTrue(stand.claim_token)                 # claim link minted
+        self.assertEqual(stand.instagram, 'lanibakes')     # sanitized via mixin
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Lani Lilikoi', mail.outbox[0].subject)
+
+    def test_submission_hidden_by_default_shown_with_community(self):
+        self.client.force_login(self._user())
+        # follow=True so the success flash is consumed on the detail page and
+        # doesn't bleed into the next list render.
+        self.client.post(reverse('submit_stand'), {
+            'name': 'Hidden Gem', 'location_type': 'popup',
+            'description': 'x', 'attendance': 'attended'}, follow=True)
+        self.assertNotContains(self.client.get(reverse('stand_list')), 'Hidden Gem')
+        self.assertContains(
+            self.client.get(reverse('stand_list'), {'community': '1'}), 'Hidden Gem')
+
+    def test_anonymous_post_creates_nothing(self):
+        self.client.post(reverse('submit_stand'), {
+            'name': 'Nope', 'location_type': 'popup', 'attendance': 'attended'})
+        self.assertFalse(Stand.objects.filter(name='Nope').exists())
+
+
 class MapViewTests(TestCase):
     def setUp(self):
         self.located = make_stand()  # has coords from make_stand defaults
