@@ -1,17 +1,425 @@
-# Text-moderation denylist — one term per line, case-insensitive substring
-# match. Blank lines and lines starting with # are ignored. Loaded at startup
-# (restart after editing).
+# Text-moderation denylist — one term per line, case-insensitive WHOLE-WORD
+# match (compiled in textmod.py, so "ass" won't trip "class"/"Scunthorpe").
+# Blank lines and lines starting with # are ignored. Loaded at startup
+# (restart after editing). Threat phrasing ("kill you", etc.) is handled by the
+# regex in textmod.py and isn't listed here.
 #
-# Seed this from a public profanity word list (e.g. the LDNOOBW
-# "List of Dirty, Naughty, Obscene, and Otherwise Bad Words") and add local
-# Hawaiian Pidgin slurs as needed (SPEC-1.1 §10.3).
+# Seeded from the LDNOOBW English list, then AGGRESSIVELY curated for a food
+# site: removed food/anatomy/name overlaps (butt, cock, breast-ish, twinkie,
+# shrimping, cornhole, negro=black-beans, tit=bird, ...) and common legit words
+# (ass, sex[-on-the-beach], sexy, suck, snatch, grope, escort, dick=name, ...).
+# Matthew to take a second pass; the semantic LLM layer + manual review are the
+# backstops for nuance. Future: build a whitelist from real Hawaii food/review
+# text and subtract it (SPEC-1.1 §10.3).
 #
-# Keep it NARROW — substring matching is blunt (the "Scunthorpe problem"), and
-# Hawaiian/Pidgin is legitimate local content, so don't add words that appear
-# inside ordinary stand names or descriptions. The semantic LLM layer (§5a) is
-# the tool for nuanced calls; this list is just for clear-cut terms.
-#
-# Threat/violence phrasing ("kill you", "I will hurt…", etc.) is already caught
-# by the built-in regex in textmod.py — no need to list those here.
-#
-# (No terms seeded yet — add below.)
+2 girls 1 cup
+2g1c
+acrotomophilia
+ahole
+ai kukae
+ai lepo
+alabama hot pocket
+alaskan pipeline
+anal
+anilingus
+anus
+apeshit
+arsehole
+asshole
+assmunch
+auto erotic
+autoerotic
+babeland
+baby batter
+baby juice
+bakatare
+ball gag
+ball gravy
+ball kicking
+ball licking
+ball sack
+ball sucking
+bangbros
+bangbus
+bareback
+barely legal
+barenaked
+bastard
+bastardo
+bastinado
+bbw
+bdsm
+beaner
+beaners
+beastiality
+beaver cleaver
+beaver lips
+bestiality
+big black
+big breasts
+big knockers
+big tits
+bimbos
+birdlock
+bitch
+bitches
+black cock
+blonde action
+blonde on blonde action
+blow job
+blow your load
+blowjob
+blue waffle
+blumpkin
+bollocks
+bondage
+boner
+boob
+boobs
+booty call
+borink
+borinki
+borot
+boto
+brown showers
+brunette action
+bukkake
+bulaia
+bulldyke
+bullet vibe
+bullshit
+bumbai you learn
+bung hole
+bunghole
+busty
+buttcheeks
+butthole
+camel toe
+camgirl
+camslut
+camwhore
+carpet muncher
+carpetmuncher
+catch cracks
+chang
+chocolate rosebuds
+cialis
+circlejerk
+cleveland steamer
+clit
+clitoris
+clover clamps
+clusterfuck
+coon
+coons
+coprolagnia
+coprophilia
+creampie
+cum
+cumming
+cumshot
+cumshots
+cunnilingus
+cunt
+darkie
+date rape
+daterape
+deep throat
+deepthroat
+dendrophilia
+dildo
+dingleberries
+dingleberry
+dirty lickens
+dirty pillows
+dirty sanchez
+dog style
+doggie style
+doggiestyle
+doggy style
+doggystyle
+dolcett
+domination
+dominatrix
+dommes
+donkey punch
+double dong
+double penetration
+dp action
+dry hump
+dvda
+eat my ass
+ecchi
+ejaculation
+erotic
+erotism
+eunuch
+fag
+faggot
+faka
+fakawat
+fecal
+felch
+fellatio
+feltch
+female squirting
+femdom
+figging
+fingerbang
+fingering
+fisting
+foot fetish
+footjob
+frotting
+fuck
+fuck buttons
+fuckin
+fucking
+fucktards
+fudge packer
+fudgepacker
+futanari
+g-spot
+gang bang
+gangbang
+gay sex
+genitals
+giant cock
+girl on top
+girls gone wild
+give you false crack
+goatcx
+goatse
+gokkun
+golden shower
+goodpoop
+goregasm
+group sex
+guro
+hand job
+handjob
+hardcore
+hele i ka po
+hentai
+homoerotic
+honkey
+hooker
+horny
+hot carl
+how to kill
+how to murder
+humping
+hupo
+incest
+intercourse
+jack off
+jail bait
+jailbait
+jerk off
+jigaboo
+jiggaboo
+jiggerboo
+jizz
+juggs
+kapapapiki
+karang yo alas
+kike
+kinbaku
+kinkster
+kinky
+knobbing
+kohe
+kukae
+leather restraint
+leather straight jacket
+lemon party
+lemu
+like scrap
+livesex
+lolita
+lolo
+lovemaking
+mada faka
+maka piapia
+make me come
+male squirting
+masturbate
+masturbating
+masturbation
+menage a trois
+mento
+milf
+mimi
+missionary position
+molowa
+mong
+motherfucker
+mound of venus
+mr hands
+muff diver
+muffdiving
+nambla
+nawashi
+neonazi
+niele
+nig nog
+nigga
+nigger
+nimphomania
+nipple
+nipples
+nsfw
+nsfw images
+nude
+nudity
+nutten
+nympho
+nymphomania
+octopussy
+oklole
+omorashi
+one cup two girls
+one guy one jar
+oof
+orgasm
+orgy
+paedophile
+paki
+pala ai
+panties
+panty
+pedobear
+pedophile
+pegging
+penis
+phone sex
+piece of shit
+pikey
+pilau
+piss pig
+pissing
+pisspig
+pleasure chest
+pole smoker
+ponyplay
+poon
+poontang
+poop chute
+poopchute
+porn
+porno
+pornography
+prince albert piercing
+pthc
+pubes
+punani
+punany
+punisai
+pupule
+pussy
+queaf
+queef
+quim
+raghead
+raging boner
+rape
+raping
+rapist
+rectum
+reverse cowgirl
+rimjob
+rimming
+rosy palm
+rosy palm and her 5 sisters
+rusty trombone
+s&m
+sadism
+santorum
+schlong
+scissoring
+semen
+sexcam
+sexual
+sexuality
+sexually
+shaved beaver
+shaved pussy
+shemale
+shibari
+shit
+shitblimp
+shitty
+shota
+slanteye
+slut
+smut
+snowballing
+sodomize
+sodomy
+sped
+spic
+splooge
+splooge moose
+spooge
+spread legs
+stink eye
+strap on
+strapon
+strappado
+strip club
+style doggy
+suicide girls
+sukebe
+sultry women
+swastika
+swinger
+tainted love
+talk stink
+tea bagging
+threesome
+throating
+thumbzilla
+tied up
+tits
+titties
+titty
+topless
+tosser
+towelhead
+tranny
+tribadism
+tub girl
+tubgirl
+tushy
+twat
+twink
+two girls one cup
+ule hole
+undressing
+upskirt
+urethra play
+urophilia
+vagina
+venus mound
+viagra
+vibrator
+violet wand
+vorarephilia
+voyeur
+voyeurweb
+voyuer
+vulva
+waha nui
+wank
+wet dream
+wetback
+white power
+whore
+worldsex
+wrapping men
+wrinkled starfish
+xxx
+yaoi
+yellow showers
+yiffy
+zoophilia

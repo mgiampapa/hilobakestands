@@ -452,6 +452,41 @@ class UrlSafetyCheckTests(TestCase):
         self.assertFalse(url_domain_blocked('http://example.com'))
 
 
+class TextModerationTests(TestCase):
+    """The denylist/threat filter (textmod) — must catch clear abuse but NOT
+    flag legitimate food/local words (whole-word match + curated list)."""
+
+    def test_blocks_obscenity_slur_and_threat(self):
+        from stands.textmod import text_blocked
+        self.assertTrue(text_blocked('this fucking nonsense'))
+        self.assertTrue(text_blocked('you absolute bitch'))
+        self.assertTrue(text_blocked('I will kill you'))     # threat regex
+        self.assertTrue(text_blocked('death to them all'))   # threat regex
+
+    def test_allows_food_and_legit_words(self):
+        from stands.textmod import text_blocked
+        for ok in ['Smoked pork butt', 'Crispy chicken breast',
+                   'Sex on the Beach shave ice', "Dick's Drive-In",
+                   'Garlic shrimp truck', 'A real class act',
+                   'Scunthorpe Bakery', 'Grass-fed beef', 'Cornhole Fridays',
+                   'Assorted malasadas', 'Coconut balls', 'Loco moco',
+                   'Pūpū platter', 'Kaʻū coffee']:   # Hawaiian diacriticals
+            self.assertFalse(text_blocked(ok), f'wrongly flagged: {ok!r}')
+
+    def test_normalize_folds_hawaiian_diacriticals(self):
+        from stands.textmod import _normalize
+        self.assertEqual(_normalize('pūpū'), 'pupu')        # kahakō stripped
+        self.assertEqual(_normalize('Kaʻū'.lower()), 'kau')  # ʻokina + macron
+
+    def test_matching_is_diacritical_insensitive(self):
+        # A plain-ASCII denylist term must match diacritical input (and vice
+        # versa). Uses a benign word as a stand-in for a Hawaiian slur.
+        from stands import textmod
+        pat = textmod._compile(['pupu'])
+        self.assertTrue(pat.search(textmod._normalize('fresh pūpū today')))
+        self.assertTrue(pat.search(textmod._normalize('fresh pupu today')))
+
+
 class MapViewTests(TestCase):
     def setUp(self):
         self.located = make_stand()  # has coords from make_stand defaults
