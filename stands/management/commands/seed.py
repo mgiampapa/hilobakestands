@@ -31,6 +31,11 @@ class Command(BaseCommand):
                 irregular_hours_note='Stocked until sold out — often gone by noon',
                 instagram='@auntielehuabakes',
                 status=Stand.Status.PUBLISHED,
+                # Seed/admin path is trusted → verified (only public submissions
+                # stay at the unverified model default).
+                verification=Stand.Verification.VERIFIED,
+                created_via=Stand.CreatedVia.ADMIN_SEED,
+                verified_via=Stand.VerifiedVia.ADMIN,
             ))
         if created:
             stand.categories.set(Category.objects.filter(

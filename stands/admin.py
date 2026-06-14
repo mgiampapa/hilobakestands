@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.db.models import Count, Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import (Category, ClaimRequest, DayOverride, PaymentMethod,
@@ -43,19 +44,27 @@ class PhotoInline(admin.TabularInline):
 
 @admin.register(Stand)
 class StandAdmin(admin.ModelAdmin):
-    list_display = ('name', 'location_type', 'status', 'attendance',
-                    'score_badge', 'open_reports', 'owner', 'updated_at')
-    list_filter = (NeedsReviewFilter, 'status', 'location_type', 'attendance',
-                   'categories')
+    list_display = ('name', 'location_type', 'status', 'verified_badge',
+                    'attendance', 'score_badge', 'open_reports', 'owner',
+                    'updated_at')
+    list_filter = (NeedsReviewFilter, 'verification', 'status', 'created_via',
+                   'location_type', 'attendance', 'categories')
     search_fields = ('name', 'description', 'street_address')
     ordering = ('validation_score', 'name')  # lowest scores first
     prepopulated_fields = {'slug': ('name',)}
     filter_horizontal = ('categories', 'payment_methods')
     inlines = [WeeklyHoursInline, DayOverrideInline, PhotoInline]
-    readonly_fields = ('claim_link', 'claimed_at',
-                       'created_at', 'created_by', 'updated_at', 'updated_by')
-    actions = ['publish', 'unpublish', 'generate_claim_tokens',
-               'download_claim_flyers']
+    readonly_fields = ('claim_link', 'claimed_at', 'verified_at', 'verified_via',
+                       'submitted_at', 'created_at', 'created_by', 'updated_at',
+                       'updated_by')
+    actions = ['mark_verified', 'publish', 'unpublish',
+               'generate_claim_tokens', 'download_claim_flyers']
+
+    def get_changeform_initial_data(self, request):
+        # Admin-created stands are a trusted path → default the Add form to
+        # Verified (the model default is the fail-safe Unverified for public
+        # submissions). Admin can still switch it to Unverified.
+        return {'verification': Stand.Verification.VERIFIED}
 
     def get_queryset(self, request):
         return (super().get_queryset(request)
@@ -73,6 +82,12 @@ class StandAdmin(admin.ModelAdmin):
     @admin.display(description='Open reports', ordering='unhandled_reports')
     def open_reports(self, obj):
         return obj.unhandled_reports or ''
+
+    @admin.display(description='Verified', ordering='verification')
+    def verified_badge(self, obj):
+        if obj.verification == Stand.Verification.VERIFIED:
+            return format_html('<b style="color:#15803d">✓ verified</b>')
+        return format_html('<span style="color:#b45309">… unverified</span>')
 
     @admin.display(description='Claim link')
     def claim_link(self, obj):
@@ -199,6 +214,13 @@ class StandAdmin(admin.ModelAdmin):
                               level='WARNING')
         self.message_user(request, msg)
 
+    @admin.action(description='Mark selected stands verified')
+    def mark_verified(self, request, queryset):
+        n = queryset.update(verification=Stand.Verification.VERIFIED,
+                            verified_via=Stand.VerifiedVia.ADMIN,
+                            verified_at=timezone.now())
+        self.message_user(request, f'{n} stand(s) marked verified.')
+
     @admin.action(description='Publish selected stands')
     def publish(self, request, queryset):
         queryset.update(status='published')
@@ -211,6 +233,11 @@ class StandAdmin(admin.ModelAdmin):
         if not change:
             obj.created_by = request.user
         obj.updated_by = request.user
+        # Stamp verification metadata when an admin sets/leaves it Verified.
+        if (obj.verification == Stand.Verification.VERIFIED
+                and not obj.verified_at):
+            obj.verified_via = obj.verified_via or Stand.VerifiedVia.ADMIN
+            obj.verified_at = timezone.now()
         super().save_model(request, obj, form, change)
 
     class Media:

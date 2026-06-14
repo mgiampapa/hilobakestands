@@ -107,6 +107,55 @@ class Stand(models.Model):
         blank=True,
         help_text=_('Admin-only research notes; never shown publicly.'))
 
+    # --- verification & submission provenance (v1.1) -----------------------
+    # Trust is independent of `status` (visibility) and `owner` (control).
+    # `created_by` (defined below) records WHO created/submitted the stand.
+    class Verification(models.TextChoices):
+        UNVERIFIED = 'unverified', _('Unverified')
+        VERIFIED = 'verified', _('Verified')
+
+    class CreatedVia(models.TextChoices):
+        ADMIN_SEED = 'admin_seed', _('Admin / seed / import')
+        PUBLIC_SUBMIT = 'public_submit', _('Public submission')
+
+    class VerifiedVia(models.TextChoices):
+        ADMIN = 'admin', _('Admin approval')
+        CLAIM = 'claim', _('Owner claim')
+
+    # Fail-SAFE default: a stand is UNVERIFIED until a trusted path proves it.
+    # Trusted creation paths (admin save / seed / import) and the claim flow set
+    # VERIFIED explicitly; only public submissions are left at this default.
+    verification = models.CharField(
+        max_length=10, choices=Verification.choices,
+        default=Verification.UNVERIFIED,
+        help_text=_('Verified stands appear in the default public view; '
+                    'unverified (community-submitted) stands are hidden behind '
+                    'a toggle.'))
+    created_via = models.CharField(
+        max_length=15, choices=CreatedVia.choices,
+        default=CreatedVia.ADMIN_SEED,
+        help_text=_('How this listing entered the system.'))
+    submitted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=_('When a public submission arrived (blank for admin/seed).'))
+    verified_at = models.DateTimeField(null=True, blank=True, editable=False)
+    verified_via = models.CharField(
+        max_length=10, choices=VerifiedVia.choices, blank=True)
+    auto_hidden = models.BooleanField(
+        default=False,
+        help_text=_('Reserved for the (deferred) report auto-hide: withholds a '
+                    'stand from public view pending review. v1.1 uses manual '
+                    'review, so this stays False for now.'))
+
+    def mark_verified(self, via=VerifiedVia.ADMIN, save=True):
+        """Flip to verified (used by the admin action and the claim flow)."""
+        self.verification = self.Verification.VERIFIED
+        self.verified_via = via
+        self.verified_at = timezone.now()
+        if save:
+            self.save(update_fields=['verification', 'verified_via',
+                                     'verified_at', 'updated_at'])
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='owned_stands')

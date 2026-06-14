@@ -150,6 +150,11 @@ class Command(BaseCommand):
                     internal_notes=' | '.join(filter(None, [
                         get(row, 'Notes'), get(row, 'Photo Sources / Links')])),
                     status=status,
+                    # Import is an admin-curation path → verified (only public
+                    # submissions stay at the unverified model default).
+                    verification=Stand.Verification.VERIFIED,
+                    created_via=Stand.CreatedVia.ADMIN_SEED,
+                    verified_via=Stand.VerifiedVia.ADMIN,
                 ))
 
             # hours: rebuild from sheet

@@ -148,6 +148,9 @@ class ImportListingsTests(TestCase):
             call_command('import_listings', self._sheet(d))
         stand = Stand.objects.get(slug='aloha-stand')
         self.assertEqual(stand.status, Stand.Status.DRAFT)
+        # Import is a trusted admin path → verified (Slice 0).
+        self.assertEqual(stand.verification, Stand.Verification.VERIFIED)
+        self.assertEqual(stand.created_via, Stand.CreatedVia.ADMIN_SEED)
         self.assertEqual(stand.weekly_hours.count(), 1)
 
     def test_reimport_leaves_existing_stand_untouched(self):
@@ -184,6 +187,41 @@ class ImportListingsTests(TestCase):
             call_command('import_listings', path, '--overwrite')
         stand.refresh_from_db()
         self.assertEqual(stand.description, 'From sheet')
+
+
+class VerificationTests(TestCase):
+    """Slice 0: verification + provenance fields (v1.1)."""
+
+    def test_new_stand_defaults_unverified(self):
+        # Fail-safe: a plain new stand is UNVERIFIED until a trusted path acts.
+        s = Stand.objects.create(
+            name='Mystery Mochi', location_type=Stand.LocationType.BAKE_STAND)
+        self.assertEqual(s.verification, Stand.Verification.UNVERIFIED)
+        self.assertEqual(s.created_via, Stand.CreatedVia.ADMIN_SEED)
+        self.assertFalse(s.auto_hidden)
+        self.assertIsNone(s.verified_at)
+
+    def test_mark_verified_helper(self):
+        s = Stand.objects.create(
+            name='Pau Hana Pops', location_type=Stand.LocationType.POPUP)
+        s.mark_verified(via=Stand.VerifiedVia.CLAIM)
+        s.refresh_from_db()
+        self.assertEqual(s.verification, Stand.Verification.VERIFIED)
+        self.assertEqual(s.verified_via, Stand.VerifiedVia.CLAIM)
+        self.assertIsNotNone(s.verified_at)
+
+    def test_admin_mark_verified_action(self):
+        from django.contrib.admin.sites import AdminSite
+        from stands.admin import StandAdmin
+        s = Stand.objects.create(
+            name='Queue Me', location_type=Stand.LocationType.BAKE_STAND)
+        admin_obj = StandAdmin(Stand, AdminSite())
+        admin_obj.message_user = mock.Mock()
+        admin_obj.mark_verified(mock.Mock(), Stand.objects.filter(pk=s.pk))
+        s.refresh_from_db()
+        self.assertEqual(s.verification, Stand.Verification.VERIFIED)
+        self.assertEqual(s.verified_via, Stand.VerifiedVia.ADMIN)
+        self.assertIsNotNone(s.verified_at)
 
 
 class MapViewTests(TestCase):
