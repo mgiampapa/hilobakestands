@@ -42,9 +42,18 @@ def turnstile_ok(request):
 
 def _filtered_stands(request):
     """Shared filtering for the list and map views (full filter parity)."""
-    stands = (Stand.objects.filter(status=Stand.Status.PUBLISHED)
+    # auto_hidden is reserved for the deferred report auto-hide; excluding it
+    # here means that machinery, if ever built, withholds stands automatically.
+    stands = (Stand.objects.filter(status=Stand.Status.PUBLISHED,
+                                   auto_hidden=False)
               .prefetch_related('categories', 'payment_methods',
                                 'weekly_hours', 'day_overrides'))
+
+    # Verified-only by default; unverified community submissions are opt-in via
+    # ?community=1 (the "show community submissions" toggle).
+    show_community = request.GET.get('community') == '1'
+    if not show_community:
+        stands = stands.filter(verification=Stand.Verification.VERIFIED)
 
     location_type = request.GET.get('type', '')
     category = request.GET.get('category', '')
@@ -62,7 +71,9 @@ def _filtered_stands(request):
     return stands, {
         'categories': Category.objects.all(),
         'location_types': Stand.LocationType.choices,
-        'current': {'type': location_type, 'category': category, 'open': open_now},
+        'show_community': show_community,
+        'current': {'type': location_type, 'category': category,
+                    'open': open_now, 'community': show_community},
     }
 
 
@@ -92,10 +103,12 @@ def stand_map(request):
 
 
 def stand_detail(request, slug):
+    # Unverified stands are still viewable by direct link (with a badge); only
+    # auto_hidden (deferred) ones 404. status=published still required.
     stand = get_object_or_404(
         Stand.objects.prefetch_related('categories', 'payment_methods',
                                        'weekly_hours', 'photos'),
-        slug=slug, status=Stand.Status.PUBLISHED)
+        slug=slug, status=Stand.Status.PUBLISHED, auto_hidden=False)
     return render(request, 'stands/detail.html', {
         'stand': stand,
         'photos': stand.photos.filter(approved=True),

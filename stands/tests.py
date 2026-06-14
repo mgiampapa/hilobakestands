@@ -9,8 +9,11 @@ from .models import DayOverride, Stand, WeeklyHours
 
 
 def make_stand(**kw):
+    # A normal published stand is verified post-Slice-0 (admin/seed/import path);
+    # tests that want a community submission pass verification=... explicitly.
     defaults = dict(name='Test Stand', location_type=Stand.LocationType.BAKE_STAND,
                     status=Stand.Status.PUBLISHED,
+                    verification=Stand.Verification.VERIFIED,
                     latitude='19.700000', longitude='-155.100000')
     defaults.update(kw)
     return Stand.objects.create(**defaults)
@@ -222,6 +225,49 @@ class VerificationTests(TestCase):
         self.assertEqual(s.verification, Stand.Verification.VERIFIED)
         self.assertEqual(s.verified_via, Stand.VerifiedVia.ADMIN)
         self.assertIsNotNone(s.verified_at)
+
+
+class VerifiedFilteringTests(TestCase):
+    """Slice 1: verified-only default, community toggle, unverified badge."""
+
+    def setUp(self):
+        self.verified = Stand.objects.create(
+            name='Verified Stand', location_type=Stand.LocationType.BAKE_STAND,
+            status=Stand.Status.PUBLISHED, latitude='19.70', longitude='-155.08',
+            verification=Stand.Verification.VERIFIED)
+        self.unverified = Stand.objects.create(
+            name='Community Stand', location_type=Stand.LocationType.POPUP,
+            status=Stand.Status.PUBLISHED, latitude='19.71', longitude='-155.09',
+            verification=Stand.Verification.UNVERIFIED)
+
+    def test_list_defaults_to_verified_only(self):
+        r = self.client.get(reverse('stand_list'))
+        self.assertContains(r, 'Verified Stand')
+        self.assertNotContains(r, 'Community Stand')
+
+    def test_list_community_param_includes_unverified_with_badge(self):
+        r = self.client.get(reverse('stand_list'), {'community': '1'})
+        self.assertContains(r, 'Verified Stand')
+        self.assertContains(r, 'Community Stand')
+        self.assertContains(r, 'Unverified')  # the badge
+
+    def test_map_defaults_to_verified_only(self):
+        r = self.client.get(reverse('stand_map'))
+        self.assertContains(r, 'Verified Stand')   # in marker JSON
+        self.assertNotContains(r, 'Community Stand')
+
+    def test_unverified_detail_viewable_with_badge(self):
+        r = self.client.get(self.unverified.get_absolute_url())
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Unverified')
+
+    def test_auto_hidden_stand_404s_and_drops_from_list(self):
+        self.unverified.auto_hidden = True
+        self.unverified.save(update_fields=['auto_hidden'])
+        self.assertEqual(
+            self.client.get(self.unverified.get_absolute_url()).status_code, 404)
+        r = self.client.get(reverse('stand_list'), {'community': '1'})
+        self.assertNotContains(r, 'Community Stand')
 
 
 class MapViewTests(TestCase):

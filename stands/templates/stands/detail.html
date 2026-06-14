@@ -12,6 +12,7 @@
     <h1>{{ stand.name }}</h1>
   {% endif %}
   <span class="badge">{{ stand.get_location_type_display }}</span>
+  {% if stand.verification == 'unverified' %}<span class="badge unverified">{% trans "Unverified" %}</span>{% endif %}
   {% if stand.is_open_now %}
     <span class="badge open">{% if stand.attendance == 'unattended' %}{% trans "Stocked now" %}{% else %}{% trans "Open now" %}{% endif %}</span>
   {% else %}
@@ -20,6 +21,10 @@
   {% for c in stand.categories.all %}<span class="badge">{{ c.name }}</span>{% endfor %}
 
   <p>{{ stand.description|linebreaks }}</p>
+
+  {% if stand.verification == 'unverified' %}
+    <p class="muted"><em>{% trans "This is a community-submitted listing that hasn't been verified yet — details may be incomplete or out of date." %}</em></p>
+  {% endif %}
 
   {% if stand.attendance == 'unattended' %}
     <p><em>{% trans "Honor stand — hours below mean stocked, not staffed. Often sells out early." %}</em></p>

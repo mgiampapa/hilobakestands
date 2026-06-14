@@ -32,6 +32,7 @@
         {% endif %}
         <h2><a href="{{ stand.get_absolute_url }}">{{ stand.name }}</a></h2>
         <span class="badge">{{ stand.get_location_type_display }}</span>
+        {% if stand.verification == 'unverified' %}<span class="badge unverified" title="{% trans 'Community-submitted, not yet verified' %}">{% trans "Unverified" %}</span>{% endif %}
         {% if stand.is_open_now %}
           <span class="badge open">{% if stand.attendance == 'unattended' %}{% trans "Stocked now" %}{% else %}{% trans "Open now" %}{% endif %}</span>
         {% else %}
