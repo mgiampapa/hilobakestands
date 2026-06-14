@@ -286,6 +286,19 @@ class AuthHeaderTests(TestCase):
         r = self.client.get(reverse('stand_list'))
         self.assertContains(r, 'Sign in')
 
+    def test_login_display_prefers_name_over_lowercase_username(self):
+        # Regression: allauth's post-login flash ("signed in as …") defaulted
+        # to the auto-generated, lowercased username; ACCOUNT_USER_DISPLAY must
+        # show the proper-cased OAuth name instead.
+        from django.contrib.auth import get_user_model
+        from allauth.account.utils import user_display
+        User = get_user_model()
+        named = User.objects.create_user(username='matt', first_name='Matthew')
+        self.assertEqual(user_display(named), 'Matthew')
+        # no first name → email, still never the lowercased username
+        emailed = User.objects.create_user(username='kimo', email='kimo@example.com')
+        self.assertEqual(user_display(emailed), 'kimo@example.com')
+
 
 class ClaimFlowTests(TestCase):
     """QR/SMS one-time claim tokens (/claim/<token>/)."""

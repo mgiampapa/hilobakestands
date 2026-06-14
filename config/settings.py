@@ -192,6 +192,12 @@ SITE_ID = 1
 SITE_BASE_URL = os.environ.get('SITE_BASE_URL', 'https://hilobakestands.com')
 LOGIN_REDIRECT_URL = '/'
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # identity comes from Google/Apple
+# allauth's post-login flash ("Successfully signed in as …") and the
+# {% user_display %} tag default to the auto-generated, lowercased username.
+# Show the proper-cased name from the OAuth profile instead, so the flash
+# matches the "Aloha, {first_name}" header greeting.
+ACCOUNT_USER_DISPLAY = lambda user: (
+    user.first_name or user.get_full_name() or user.email or user.username)
 # Trust provider-verified emails: same email via Google or Apple = same user
 SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
 SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
