@@ -1,7 +1,25 @@
 # HiloBakeStands.com — Project Status Report
 
-> Written by Claude, 2026-06-10; last updated 2026-06-13 (end of session).
+> Written by Claude, 2026-06-10; last updated 2026-06-14 (end of session).
 > Purpose: context for resuming work in a future chat.
+>
+> SESSION CHECKPOINT 2026-06-14: v1.1 public-submissions build continuing.
+> SLICE 3 DONE (commit 1748b43): completing a claim now also verifies the
+> stand. stand_claim (stands/views.py) calls
+> stand.mark_verified(via=Stand.VerifiedVia.CLAIM, save=False) folded into
+> the existing single update_fields save, so owner assignment + verification
+> land atomically (no second write). The mark_verified helper already
+> existed from the admin "Mark verified" action — Slice 3 was just the
+> wire-up. Added test_claim_verifies_stand (forces unverified, POSTs claim,
+> asserts verification=verified + verified_via=claim). Full suite 153 tests,
+> all green. Prior v1.1 slices already in git: Slice 1 (verified-only
+> list/map + community toggle + unverified badge, f059c35), Slice 2a/2b/2c
+> (public submit form + notify + CTA + URL safety + denylist/honeypot/rate
+> limit/Turnstile + map pin + 25m dup warning). Remaining v1.1 checklist
+> items: admin review-queue polish, badge/toggle QA, and the conditional/
+> deferred bits (report-integrity hardening + auto-hide + semantic LLM
+> moderator — all built only if abuse appears). Matthew testing the claim->
+> verify flow live after deploy.
 >
 > SESSION CHECKPOINT 2026-06-13: (1) mobile list thumbnail VERIFIED across
 > Firefox + iPhone/Safari + Chrome-on-Android → that workstream DONE.
