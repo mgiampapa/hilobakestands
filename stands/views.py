@@ -177,8 +177,8 @@ def stand_claim(request, token):
                                   'verification', 'verified_via', 'verified_at',
                                   'updated_at'])
         messages.success(request, _(
-            'You now manage %(name)s. Owner tools are coming soon — '
-            'for now your ownership is on record.') % {'name': stand.name})
+            'You now manage %(name)s. Use the “Edit details” button to '
+            'update your listing.') % {'name': stand.name})
         return redirect(stand.get_absolute_url())
 
     return render(request, 'stands/claim.html', {'stand': stand})
