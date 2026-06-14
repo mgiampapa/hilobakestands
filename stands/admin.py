@@ -9,15 +9,8 @@ from .models import (Category, ClaimRequest, DayOverride, PaymentMethod,
                      Photo, Report, Stand, WeeklyHours)
 
 NEEDS_REVIEW_BELOW = 70  # validation_score threshold for admin attention
-
-
-def user_label(user):
-    """Admin-facing label for a user. This app keys identity on EMAIL
-    (SOCIALACCOUNT_EMAIL_AUTHENTICATION), so show that — the allauth-generated
-    username is a lowercased artifact: unique, but not the meaningful identity."""
-    if not user:
-        return '—'
-    return user.email or user.get_full_name() or user.get_username()
+# Note: users render by EMAIL in the admin via the User.__str__ patch in
+# stands/apps.py (owner, created_by, updated_by, photo uploaded_by, etc.).
 
 
 class NeedsReviewFilter(admin.SimpleListFilter):
@@ -54,7 +47,7 @@ class PhotoInline(admin.TabularInline):
 @admin.register(Stand)
 class StandAdmin(admin.ModelAdmin):
     list_display = ('name', 'location_type', 'status', 'verified_badge',
-                    'attendance', 'score_badge', 'open_reports', 'owner_display',
+                    'attendance', 'score_badge', 'open_reports', 'owner',
                     'updated_at')
     list_filter = (NeedsReviewFilter, 'verification', 'status', 'created_via',
                    'location_type', 'attendance', 'categories')
@@ -98,17 +91,12 @@ class StandAdmin(admin.ModelAdmin):
             return format_html('<b style="color:#15803d">✓ verified</b>')
         return format_html('<span style="color:#b45309">… unverified</span>')
 
-    @admin.display(description='Owner', ordering='owner__email')
-    def owner_display(self, obj):
-        return user_label(obj.owner) if obj.owner else '—'
-
     @admin.display(description='Claim link')
     def claim_link(self, obj):
         """Plain copyable URL — QR later, but works as-is over SMS/email."""
         if obj.owner:
             return format_html('Claimed by <b>{}</b> at {:%Y-%m-%d %H:%M}',
-                               user_label(obj.owner),
-                               obj.claimed_at or obj.updated_at)
+                               obj.owner, obj.claimed_at or obj.updated_at)
         if not obj.pk:
             return '—'
         gen_url = reverse('admin:stands_stand_generate_claim_token',
@@ -275,12 +263,8 @@ class ReportAdmin(admin.ModelAdmin):
 
 @admin.register(ClaimRequest)
 class ClaimRequestAdmin(admin.ModelAdmin):
-    list_display = ('stand', 'user_display', 'status', 'created_at')
+    list_display = ('stand', 'user', 'status', 'created_at')
     list_filter = ('status',)
-
-    @admin.display(description='User', ordering='user__email')
-    def user_display(self, obj):
-        return user_label(obj.user)
 
 
 @admin.register(Photo)

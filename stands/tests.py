@@ -337,6 +337,19 @@ class AuthHeaderTests(TestCase):
         emailed = User.objects.create_user(username='kimo', email='kimo@example.com')
         self.assertEqual(user_display(emailed), 'kimo@example.com')
 
+    def test_user_stringifies_by_email_for_admin(self):
+        # str(user) is what the admin renders for FK columns / readonly fields /
+        # select widgets; it must show the email identity, not the lowercased
+        # auto-username (patched in stands/apps.py).
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        u = User.objects.create_user(
+            username='matthew', email='matt@giampapa.com', first_name='Matthew')
+        self.assertEqual(str(u), 'matt@giampapa.com')
+        # no email → falls back to a non-empty label (never blank)
+        nameless = User.objects.create_user(username='kimo')
+        self.assertEqual(str(nameless), 'kimo')
+
 
 class ClaimFlowTests(TestCase):
     """QR/SMS one-time claim tokens (/claim/<token>/)."""
