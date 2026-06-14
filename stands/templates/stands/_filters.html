@@ -13,14 +13,20 @@
     {% endfor %}
   </select>
   <label><input type="checkbox" name="open" value="now" {% if current.open %}checked{% endif %}> {% trans "Open now" %}</label>
-  <label title="{% trans 'Includes unverified, community-submitted stands' %}"><input type="checkbox" name="community" value="1" id="community-toggle" {% if current.community %}checked{% endif %}> {% trans "Show community submissions" %}</label>
+  {# carry the Unverified toggle through a Filter submit (it's a pill below) #}
+  {% if current.community %}<input type="hidden" name="community" value="1">{% endif %}
   <button type="submit">{% trans "Filter" %}</button>
-  <button type="button" class="btn" id="near-me" aria-pressed="false" hidden>📍 {% trans "Near me" %}</button>
   {% if map_page %}
     <a class="btn toggle-view" href="{% url 'stand_list' %}?{{ request.GET.urlencode }}">📋 {% trans "List view" %}</a>
   {% else %}
     <a class="btn toggle-view" href="{% url 'stand_map' %}?{{ request.GET.urlencode }}">🗺️ {% trans "Map view" %}</a>
   {% endif %}
+
+  <hr class="filter-sep">
+
+  {# on/off toggle pills (work differently from the filters above) #}
+  <button type="button" class="btn" id="near-me" aria-pressed="false" hidden>📍 {% trans "Near me" %}</button>
+  <button type="button" class="btn{% if current.community %} active{% endif %}" id="community-toggle" aria-pressed="{% if current.community %}true{% else %}false{% endif %}" title="{% trans 'Show unverified, community-submitted stands' %}">{% trans "Unverified" %}</button>
   <span class="muted" id="near-me-status" role="status"></span>
 </form>
 <script>
@@ -110,22 +116,27 @@
   }
 })();
 
-// "Show community submissions": include unverified stands (server-side, via
-// ?community=1). Preference persists in localStorage like the near-me toggle —
-// because it changes which stands the server returns, applying a remembered
-// "on" needs a one-time redirect on fresh loads (no client-only shortcut).
+// "Unverified" pill: include unverified, community-submitted stands
+// (server-side, via ?community=1). A turn-on/off toggle grouped with Near me;
+// the choice is saved in localStorage. Because it changes the server result
+// set, toggling navigates (reloads) rather than re-sorting client-side.
 (function () {
-  const cb = document.getElementById('community-toggle');
-  if (!cb) return;
+  const btn = document.getElementById('community-toggle');
+  if (!btn) return;
   const PREF = 'hbs-community';            // 'on' | 'off' | unset
-  cb.addEventListener('change', function () {
-    localStorage.setItem(PREF, cb.checked ? 'on' : 'off');
-    cb.form.submit();                      // apply immediately
+  const on = new URLSearchParams(location.search).get('community') === '1';
+  btn.addEventListener('click', function () {
+    const p = new URLSearchParams(location.search);
+    if (on) { p.delete('community'); localStorage.setItem(PREF, 'off'); }
+    else { p.set('community', '1'); localStorage.setItem(PREF, 'on'); }
+    const qs = p.toString();
+    location.assign(location.pathname + (qs ? '?' + qs : ''));
   });
-  const params = new URLSearchParams(location.search);
-  if (localStorage.getItem(PREF) === 'on' && params.get('community') !== '1') {
-    params.set('community', '1');
-    location.replace(location.pathname + '?' + params.toString());
+  // Auto-apply a remembered "on" preference on fresh loads.
+  if (!on && localStorage.getItem(PREF) === 'on') {
+    const p = new URLSearchParams(location.search);
+    p.set('community', '1');
+    location.replace(location.pathname + '?' + p.toString());
   }
 })();
 </script>

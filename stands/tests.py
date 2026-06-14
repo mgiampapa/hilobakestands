@@ -249,7 +249,7 @@ class VerifiedFilteringTests(TestCase):
         r = self.client.get(reverse('stand_list'), {'community': '1'})
         self.assertContains(r, 'Verified Stand')
         self.assertContains(r, 'Community Stand')
-        self.assertContains(r, 'Unverified')  # the badge
+        self.assertContains(r, 'badge unverified')  # the badge (not the pill)
 
     def test_map_defaults_to_verified_only(self):
         r = self.client.get(reverse('stand_map'))

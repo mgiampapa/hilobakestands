@@ -25,8 +25,10 @@
       <label>{% trans "Pin the location" %}</label>
       <p class="muted">{% trans "Recommended — drag the pin (or tap the map) to the exact spot so it lands on the map precisely. Standing there now? Use the location button. Skip it and we'll place it from the address later." %}</p>
       <div id="pin-map"></div>
-      <input type="hidden" name="latitude" id="id_latitude" value="{{ request.POST.latitude }}">
-      <input type="hidden" name="longitude" id="id_longitude" value="{{ request.POST.longitude }}">
+      {% comment %}On an off-island pin_error, clear the coords so the map resets
+      to Hilo (don't strand them off-island). Keep them for the dup warning.{% endcomment %}
+      <input type="hidden" name="latitude" id="id_latitude" value="{% if not pin_error %}{{ request.POST.latitude }}{% endif %}">
+      <input type="hidden" name="longitude" id="id_longitude" value="{% if not pin_error %}{{ request.POST.longitude }}{% endif %}">
       <div class="today-actions" style="margin-top:0.6rem;">
         <button type="button" class="btn" id="gps-btn">📍 {% trans "Use my current location" %}</button>
       </div>
