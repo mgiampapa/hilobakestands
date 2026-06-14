@@ -26,7 +26,7 @@
 
   {# on/off toggle pills (work differently from the filters above) #}
   <button type="button" class="btn" id="near-me" aria-pressed="false" hidden>📍 {% trans "Near me" %}</button>
-  <button type="button" class="btn{% if current.community %} active{% endif %}" id="community-toggle" aria-pressed="{% if current.community %}true{% else %}false{% endif %}" title="{% trans 'Show unverified, community-submitted stands' %}">{% trans "Unverified" %}</button>
+  <button type="button" class="btn{% if current.community %} active{% endif %}" id="community-toggle" aria-pressed="{% if current.community %}true{% else %}false{% endif %}" title="{% trans 'Show unverified, community-submitted stands' %}">🤙 {% trans "Unverified" %}</button>
   <span class="muted" id="near-me-status" role="status"></span>
 </form>
 <script>
