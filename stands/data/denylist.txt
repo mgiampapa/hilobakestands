@@ -1,0 +1,17 @@
+# Text-moderation denylist — one term per line, case-insensitive substring
+# match. Blank lines and lines starting with # are ignored. Loaded at startup
+# (restart after editing).
+#
+# Seed this from a public profanity word list (e.g. the LDNOOBW
+# "List of Dirty, Naughty, Obscene, and Otherwise Bad Words") and add local
+# Hawaiian Pidgin slurs as needed (SPEC-1.1 §10.3).
+#
+# Keep it NARROW — substring matching is blunt (the "Scunthorpe problem"), and
+# Hawaiian/Pidgin is legitimate local content, so don't add words that appear
+# inside ordinary stand names or descriptions. The semantic LLM layer (§5a) is
+# the tool for nuanced calls; this list is just for clear-cut terms.
+#
+# Threat/violence phrasing ("kill you", "I will hurt…", etc.) is already caught
+# by the built-in regex in textmod.py — no need to list those here.
+#
+# (No terms seeded yet — add below.)

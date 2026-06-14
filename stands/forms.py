@@ -49,6 +49,19 @@ def url_domain_blocked(url):
     return 'ede(17)' in (comment or '').lower()
 
 
+_BLOCKED_TEXT_MSG = _(
+    "Sorry — that contains language we can't accept. Please revise it.")
+
+
+def _reject_if_blocked(*texts):
+    """Raise if any text trips the denylist/threat filter (stands.textmod) —
+    the always-on first layer of the TextModerator. Applied to every submitter
+    free-text field (name, description, address)."""
+    from .textmod import text_blocked
+    if text_blocked(*texts):
+        raise ValidationError(_BLOCKED_TEXT_MSG)
+
+
 def _clean_handle(value, domains, pattern, label):
     """Normalize a social handle. Accepts '@name', a full profile URL, or a
     bare name; returns just the name. Domains are matched case-insensitively.
@@ -109,7 +122,9 @@ class SanitizedStandFieldsMixin:
         v = self.cleaned_data.get('description') or ''
         # Strip control characters (keep newlines and tabs); cap length.
         v = ''.join(ch for ch in v if ch in '\n\r\t' or ord(ch) >= 32)
-        return v[:2000]
+        v = v[:2000]
+        _reject_if_blocked(v)
+        return v
 
     def clean_website(self):
         url = self.cleaned_data.get('website') or ''
@@ -228,9 +243,13 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
         v = ''.join(ch for ch in v if ch == '\t' or ord(ch) >= 32)  # one line
         if not v:
             raise ValidationError(_('Please enter the stand name.'))
-        return v[:120]
+        v = v[:120]
+        _reject_if_blocked(v)
+        return v
 
     def clean_street_address(self):
         v = (self.cleaned_data.get('street_address') or '').strip()
         v = ''.join(ch for ch in v if ch == '\t' or ord(ch) >= 32)
-        return v[:200]
+        v = v[:200]
+        _reject_if_blocked(v)
+        return v

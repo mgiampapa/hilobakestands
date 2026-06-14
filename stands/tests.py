@@ -375,6 +375,45 @@ class SubmitStandTests(TestCase):
         self.client.post(reverse('submit_stand'), data, follow=True)
         self.assertTrue(Stand.objects.filter(name='Maybe Dup').exists())  # created
 
+    def test_denylist_rejects_threat_in_address(self):
+        self.client.force_login(self._user())
+        r = self.client.post(reverse('submit_stand'), {
+            'name': 'Sneaky Stand', 'location_type': 'popup',
+            'attendance': 'attended',
+            'street_address': 'behind the store — I will kill you'})
+        self.assertFalse(Stand.objects.filter(name='Sneaky Stand').exists())
+        self.assertContains(r, 'Please revise')
+
+    def test_denylist_rejects_threat_in_name(self):
+        self.client.force_login(self._user())
+        r = self.client.post(reverse('submit_stand'), {
+            'name': 'death to everyone', 'location_type': 'popup',
+            'attendance': 'attended'})
+        self.assertFalse(Stand.objects.filter(name__icontains='death').exists())
+        self.assertContains(r, 'Please revise')
+
+    def test_honeypot_silently_drops(self):
+        self.client.force_login(self._user())
+        r = self.client.post(reverse('submit_stand'), {
+            'name': 'Bot Stand', 'location_type': 'popup',
+            'attendance': 'attended',
+            'website_url': 'http://spam.example'})  # honeypot filled
+        self.assertFalse(Stand.objects.filter(name='Bot Stand').exists())
+        self.assertEqual(r.status_code, 302)  # silent redirect, no error shown
+
+    def test_rate_limit_after_five_per_day(self):
+        user = self._user()
+        self.client.force_login(user)
+        for i in range(5):
+            self.client.post(reverse('submit_stand'), {
+                'name': f'Stand {i}', 'location_type': 'popup',
+                'attendance': 'attended'}, follow=True)
+        self.assertEqual(Stand.objects.filter(created_by=user).count(), 5)
+        r = self.client.post(reverse('submit_stand'), {
+            'name': 'Sixth', 'location_type': 'popup', 'attendance': 'attended'})
+        self.assertFalse(Stand.objects.filter(name='Sixth').exists())
+        self.assertContains(r, 'come back tomorrow')
+
 
 class UrlSafetyCheckTests(TestCase):
     """url_domain_blocked parses the Cloudflare '1.1.1.3 for Families' DoH

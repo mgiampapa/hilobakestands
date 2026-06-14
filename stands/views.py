@@ -222,18 +222,44 @@ def _nearby_stand(lat, lng, meters=25):
     return None
 
 
+SUBMIT_DAILY_LIMIT = 5  # public submissions per user per rolling 24h
+
+
 def submit_stand(request):
     """Public 'Submit a stand' (login-gated). Creates an UNVERIFIED, published
     community listing; Matthew verifies later or the owner claims it. An
     optional map pin (drag/tap/GPS) sets exact coords (owner_pin precedence);
-    without one the address is geocoded later by the batch command."""
+    without one the address is geocoded later by the batch command.
+
+    Anti-abuse (2b): honeypot + per-user daily rate limit + Turnstile here; the
+    text denylist (name/description/address) lives in the form."""
     if not request.user.is_authenticated:
         return render(request, 'stands/submit_signin.html')
+    from datetime import timedelta
     from decimal import Decimal
     from django.utils import timezone
     from .forms import StandSubmitForm
+    ctx = {'turnstile_site_key': settings.TURNSTILE_SITE_KEY}
     if request.method == 'POST':
+        # Honeypot: real users never fill this. Drop silently — no create, no
+        # tell (a bot thinks it succeeded).
+        if request.POST.get('website_url'):
+            return redirect('stand_list')
         form = StandSubmitForm(request.POST)
+        # Per-user daily rate limit.
+        since = timezone.now() - timedelta(days=1)
+        recent = Stand.objects.filter(
+            created_by=request.user,
+            created_via=Stand.CreatedVia.PUBLIC_SUBMIT,
+            submitted_at__gte=since).count()
+        if recent >= SUBMIT_DAILY_LIMIT:
+            messages.error(request, _(
+                "You've added several stands today — please come back tomorrow "
+                'to add more. Mahalo for the contributions!'))
+            return render(request, 'stands/submit.html', {'form': form, **ctx})
+        if not turnstile_ok(request):
+            messages.error(request, _('Verification failed — please try again.'))
+            return render(request, 'stands/submit.html', {'form': form, **ctx})
         if form.is_valid():
             # Optional pin: parse + Big Island bbox check (reuses owner-pin rules)
             lat = lng = None
@@ -251,14 +277,15 @@ def submit_stand(request):
                         return render(request, 'stands/submit.html', {
                             'form': form, 'pin_error': _(
                                 "That pin doesn't look like it's on the Big "
-                                "Island — drag it to the stand and try again.")})
+                                "Island — drag it to the stand and try again."),
+                            **ctx})
             # Non-blocking 25m duplicate warning (only when a pin is placed)
             if lat is not None:
                 nearby = _nearby_stand(lat, lng)
                 if nearby and not request.POST.get('confirm_duplicate'):
                     return render(request, 'stands/submit.html', {
                         'form': form, 'needs_dup_confirm': True,
-                        'nearby': nearby})
+                        'nearby': nearby, **ctx})
             stand = form.save(commit=False)
             stand.slug = _unique_slug(stand.name)
             stand.status = Stand.Status.PUBLISHED
@@ -282,7 +309,7 @@ def submit_stand(request):
             return redirect(stand.get_absolute_url())
     else:
         form = StandSubmitForm()
-    return render(request, 'stands/submit.html', {'form': form})
+    return render(request, 'stands/submit.html', {'form': form, **ctx})
 
 
 def my_stands(request):
