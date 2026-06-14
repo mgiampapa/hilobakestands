@@ -19,7 +19,38 @@
 > items: admin review-queue polish, badge/toggle QA, and the conditional/
 > deferred bits (report-integrity hardening + auto-hide + semantic LLM
 > moderator — all built only if abuse appears). Matthew testing the claim->
-> verify flow live after deploy.
+> verify flow live after deploy → VERIFIED working.
+> ALSO 2026-06-14 (post-Slice-3): (a) shaka 🤙 emoji on the "Unverified"
+> filter toggle pill. (b) Claim success flash reworded — owner tools are
+> live now, so it points new owners to the "Edit details" button instead of
+> "coming soon." (c) NEW "Claim your stand" info page (/claim-your-stand/,
+> claim_your_stand view + template) + a "🤙 Is this your stand?" breadcrumb
+> on every owner-less stand detail page (hidden once claimed). Realizes the
+> v1.0 Open-Q3 owner-INITIATED claim path for owners who find their listing
+> before getting a flyer: page explains the site, that it's free, the
+> hide-but-community-can-resubmit caveat, and how to reach Matthew (email
+> matt@hilobakestands.com, DM @hilobakestands from their business account as
+> proof, or he leaves a claim slip at their cashbox on rounds). Copy
+> APPROVED by Matthew. 3 tests added → 156 tests, all green. @hilobakestands
+> IG account CREATED (verification channel only, not a content feed; bio
+> routes general questions to email; Matthew signed in on phone for push
+> notifications; hibiscus profile pic rendered to brand/instagram_profile_*.png
+> 1080². DM management: no build for now — lean on Meta Business Suite
+> notifications; Instagram Messaging API webhook → email is the homelab path
+> if DM volume ever justifies it). (d) Found that single-account-owns-many-
+> stands ALREADY WORKS (owner FK + /my/ lists all owned_stands) — logged as
+> v1.2 backlog; see "v1.2 backlog" below. (e) FINAL QA SWEEP DONE → v1.1
+> called DONE 2026-06-14. Full suite 157 (added end-to-end
+> test_submitted_stand_claimable_via_minted_token_becomes_verified covering
+> the Slice 2->3 handoff: submit mints token -> different user claims via it
+> -> verified + visible), no pending migrations, manage.py check clean, data
+> migration 0007 reversible. Only spec test item without automated coverage:
+> "migration marks seeds verified" — skipped deliberately (already applied +
+> verified live on prod; Matthew prefers fail-forward over retroactive
+> coverage). Conditional items (report-integrity, auto-hide, semantic LLM
+> moderator) remain deferred until abuse appears. NEXT: feedback-gathering
+> (field-trip 13 pins, Reddit /r/bigisland post) — feature work still paused
+> pending real user feedback.
 >
 > SESSION CHECKPOINT 2026-06-13: (1) mobile list thumbnail VERIFIED across
 > Firefox + iPhone/Safari + Chrome-on-Android → that workstream DONE.
@@ -597,6 +628,23 @@ pull to include media (currently DB snapshots only).
    user feedback before building more).
 12. Conditional milestones: simplified admin UI (if a helper joins),
    containerize (if moving hosts / multi-service).
+
+## v1.2 backlog (capture only — not building yet)
+
+- **Reviews / ratings** — already slated for v1.2 (SPEC-1.1 §9); flows through
+  the §5a `TextModerator` pono/kind/constructive pipeline when built.
+- **Multi-stand / shared management (Matthew, 2026-06-14).** Two halves:
+  - *One account owns many stands* — ALREADY WORKS today. `Stand.owner` is a FK
+    and `/my/` lists `request.user.owned_stands` (plural). For test flows, mint a
+    claim token per stand and claim them all with one account — no feature
+    needed. Only friction: one token burned per claim.
+  - *Shared / delegated management* — the actual v1.2 work. For multi-location
+    operators AND "people who operate in others' spaces as well as their own"
+    (a vendor running a listing inside a host's space — see the "hosted at"
+    pattern already flagged in Data notes: 458 Bakestand, She Shed, Hale ʻAi
+    Momona host guest vendors). The single `owner` FK can't model multiple
+    managers per stand → needs a managers M2M or a through-model with roles
+    (owner vs manager). Likely shares per-user identity plumbing with reviews.
 
 ## Person/context notes
 

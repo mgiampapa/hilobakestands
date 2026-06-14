@@ -325,6 +325,33 @@ class SubmitStandTests(TestCase):
             'name': 'Nope', 'location_type': 'popup', 'attendance': 'attended'})
         self.assertFalse(Stand.objects.filter(name='Nope').exists())
 
+    def test_submitted_stand_claimable_via_minted_token_becomes_verified(self):
+        # End-to-end Slice 2 -> Slice 3: a public submission mints a claim
+        # token; the real operator (a DIFFERENT user from the submitter) claims
+        # it with that token and the stand flips unverified -> verified and
+        # appears in the default verified-only list.
+        from django.contrib.auth import get_user_model
+        self.client.force_login(self._user())
+        self.client.post(reverse('submit_stand'), {
+            'name': 'Loop Stand', 'location_type': 'popup',
+            'description': 'malasadas', 'attendance': 'attended'}, follow=True)
+        stand = Stand.objects.get(name='Loop Stand')
+        token = stand.claim_token
+        self.assertTrue(token)
+        self.assertEqual(stand.verification, Stand.Verification.UNVERIFIED)
+        self.assertNotContains(self.client.get(reverse('stand_list')), 'Loop Stand')
+
+        operator = get_user_model().objects.create_user(
+            username='operator', email='op@example.com')
+        self.client.force_login(operator)
+        self.client.post(reverse('stand_claim', args=[token]))
+        stand.refresh_from_db()
+        self.assertEqual(stand.owner, operator)            # submitter != owner
+        self.assertEqual(stand.verification, Stand.Verification.VERIFIED)
+        self.assertEqual(stand.verified_via, Stand.VerifiedVia.CLAIM)
+        self.assertIsNone(stand.claim_token)               # token burned
+        self.assertContains(self.client.get(reverse('stand_list')), 'Loop Stand')
+
     @mock.patch('stands.forms.url_domain_blocked', return_value=False)
     def test_bare_domain_website_gets_http_scheme(self, _block):
         self.client.force_login(self._user())

@@ -1,6 +1,10 @@
 # HiloBakeStands.com — Spec v1.1: Public Stand Submissions
 
-> **Status:** Draft — v1.1 (design agreed 2026-06-13; not yet built)
+> **Status:** SHIPPED — v1.1 built + verified live; called DONE 2026-06-14
+> (design agreed 2026-06-13). The non-conditional scope is complete and
+> covered (157 tests). The conditional/deferred items — report-integrity
+> hardening (§5b), hybrid auto-hide (§5/§7), and the semantic/LLM moderator
+> (§5a) — remain gated on abuse actually appearing, by design.
 > **Builds on:** v1.0 (see `SPEC.md`). Realizes the v1.0 "User submission of
 > locations → Later: logged-in users stub out an entry to be verified or
 > claimed" item.
