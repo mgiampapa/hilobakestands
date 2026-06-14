@@ -12,6 +12,7 @@
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
         {% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}
+        {% if field.name == 'categories' %}<p class="muted">{% blocktrans %}Don't see a fitting category? <a href="mailto:matt@hilobakestands.com?subject=Category%20suggestion">Let us know</a> and we'll add it.{% endblocktrans %}</p>{% endif %}
         {{ field.errors }}
       </div>
     {% endfor %}

@@ -325,6 +325,62 @@ class SubmitStandTests(TestCase):
             'name': 'Nope', 'location_type': 'popup', 'attendance': 'attended'})
         self.assertFalse(Stand.objects.filter(name='Nope').exists())
 
+    @mock.patch('stands.forms.url_domain_blocked', return_value=False)
+    def test_bare_domain_website_gets_http_scheme(self, _block):
+        self.client.force_login(self._user())
+        self.client.post(reverse('submit_stand'), {
+            'name': 'Web Stand', 'location_type': 'popup',
+            'attendance': 'attended',
+            'website': 'awesomesauce.com/bakedgoods'}, follow=True)
+        stand = Stand.objects.get(name='Web Stand')
+        self.assertEqual(stand.website, 'http://awesomesauce.com/bakedgoods')
+
+    @mock.patch('stands.forms.url_domain_blocked', return_value=True)
+    def test_blocked_website_rejected(self, _block):
+        self.client.force_login(self._user())
+        r = self.client.post(reverse('submit_stand'), {
+            'name': 'Sketchy', 'location_type': 'popup',
+            'attendance': 'attended', 'website': 'badsite.example'})
+        self.assertFalse(Stand.objects.filter(name='Sketchy').exists())
+        self.assertContains(r, 'adult or unsafe')
+
+
+class UrlSafetyCheckTests(TestCase):
+    """url_domain_blocked parses the Cloudflare '1.1.1.3 for Families' DoH
+    response — exercised against the real JSON shapes Cloudflare returns."""
+
+    def _doh(self, payload):
+        import io
+        import json as _json
+        cm = mock.MagicMock()
+        cm.__enter__.return_value = io.BytesIO(_json.dumps(payload).encode())
+        return cm
+
+    @mock.patch('stands.forms.urllib.request.urlopen')
+    def test_blocked_domain_detected(self, urlopen):
+        from stands.forms import url_domain_blocked
+        urlopen.return_value = self._doh({
+            'Status': 0,
+            'Answer': [{'name': 'x', 'type': 1, 'TTL': 60, 'data': '0.0.0.0'}],
+            'Comment': ['EDE(17): Filtered']})
+        self.assertTrue(url_domain_blocked('http://badsite.example/path'))
+
+    @mock.patch('stands.forms.urllib.request.urlopen')
+    def test_normal_domain_allowed(self, urlopen):
+        from stands.forms import url_domain_blocked
+        urlopen.return_value = self._doh({
+            'Status': 0,
+            'Answer': [{'name': 'example.com', 'type': 1, 'TTL': 231,
+                        'data': '172.66.147.243'}]})
+        self.assertFalse(url_domain_blocked('http://example.com'))
+
+    @mock.patch('stands.forms.urllib.request.urlopen')
+    def test_network_error_fails_open(self, urlopen):
+        import urllib.error
+        from stands.forms import url_domain_blocked
+        urlopen.side_effect = urllib.error.URLError('boom')
+        self.assertFalse(url_domain_blocked('http://example.com'))
+
 
 class MapViewTests(TestCase):
     def setUp(self):

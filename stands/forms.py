@@ -1,10 +1,52 @@
+import json
+import logging
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from .models import Stand
+
+logger = logging.getLogger(__name__)
+
+
+def url_domain_blocked(url):
+    """True if the URL's domain is classified as malware or adult content by
+    Cloudflare's '1.1.1.3 for Families' resolver (blocked domains resolve to
+    0.0.0.0). Queried over DNS-over-HTTPS (family.cloudflare-dns.com) so there's
+    no extra dependency or raw-DNS plumbing.
+
+    Fails OPEN on any network error: a submitted link is verification-gated
+    anyway, so a transient DoH blip shouldn't reject a real stand. Domain-level
+    (not per-path), which matches how the category data works.
+    """
+    host = (urllib.parse.urlparse(url).hostname or '').strip()
+    if not host:
+        return False
+    query = urllib.parse.urlencode({'name': host, 'type': 'A'})
+    req = urllib.request.Request(
+        'https://family.cloudflare-dns.com/dns-query?' + query,
+        headers={'Accept': 'application/dns-json'})
+    try:
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            payload = json.load(resp)
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        logger.warning('Cloudflare family DoH unreachable; allowing %s', host)
+        return False
+    # Blocked domains are sinkholed to 0.0.0.0 (type 1 = A record) AND tagged
+    # with Extended DNS Error 17 ("Filtered") in Comment. Match either signal —
+    # robust if the sinkhole format ever changes.
+    answers = payload.get('Answer') or []
+    if any(a.get('type') == 1 and a.get('data') == '0.0.0.0' for a in answers):
+        return True
+    comment = payload.get('Comment')
+    if isinstance(comment, list):
+        comment = ' '.join(comment)
+    return 'ede(17)' in (comment or '').lower()
 
 
 def _clean_handle(value, domains, pattern, label):
@@ -69,6 +111,14 @@ class SanitizedStandFieldsMixin:
         v = ''.join(ch for ch in v if ch in '\n\r\t' or ord(ch) >= 32)
         return v[:2000]
 
+    def clean_website(self):
+        url = self.cleaned_data.get('website') or ''
+        if url and url_domain_blocked(url):
+            raise ValidationError(
+                _('That website is flagged as adult or unsafe content, so it '
+                  "can't be added. Leave it blank or use a different link."))
+        return url
+
 
 class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
     """Owner dashboard: the fields an owner may edit directly.
@@ -91,6 +141,11 @@ class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
         (Stand.Status.PUBLISHED, _('Listed on the site')),
         (Stand.Status.DRAFT, _('Hidden — taking a break or closed')),
     ]
+
+    # Bare domain OK, assume http:// (see StandSubmitForm).
+    website = forms.URLField(
+        required=False, assume_scheme='http', label=_('Website'),
+        help_text=_('Just the domain is fine — e.g. mybakestand.com'))
 
     class Meta:
         model = Stand
@@ -118,7 +173,6 @@ class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
             'instagram': _('Handle or profile link — either works.'),
             'facebook': _('Page name or profile link — either works.'),
             'tiktok': _('Handle or profile link — either works.'),
-            'website': _('Full address, starting with https://'),
             'email': _('Shown publicly on your listing.'),
         }
 
@@ -135,6 +189,12 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
     """Public 'Submit a stand' form (Slice 2). A logged-in visitor proposes a
     new listing; it's created UNVERIFIED and published, pending Matthew's review
     or an owner claim. Reuses the same input sanitization as the owner form."""
+
+    # Accept a bare domain (or domain/path) and assume http:// — no reason to
+    # make people type the scheme; their server redirects to https if it wants.
+    website = forms.URLField(
+        required=False, assume_scheme='http', label=_('Website'),
+        help_text=_('Just the domain is fine — e.g. mybakestand.com'))
 
     class Meta:
         model = Stand
@@ -162,6 +222,7 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
             'description': _('A sentence or two is plenty.'),
             'street_address': _('A street address geocodes best; a landmark '
                                 'works too — you can drop an exact pin next.'),
+            'categories': _('Select all that apply.'),
         }
 
     def clean_name(self):
