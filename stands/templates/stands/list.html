@@ -6,7 +6,7 @@
      centered list (no map shown, Leaflet never downloaded). */
   @media (min-width: 1100px) {
     main { max-width: 1380px; }
-    .toggle-view { display: none; }  /* the map is already on screen */
+    a.btn.toggle-view { display: none; }  /* the map is already on screen (beats a.btn in base.html) */
     .split { display: grid; grid-template-columns: minmax(380px, 500px) 1fr;
              gap: 1rem; align-items: start; }
     .side-map-wrap { position: sticky; top: 1rem;
