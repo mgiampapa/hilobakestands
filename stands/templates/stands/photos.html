@@ -38,8 +38,25 @@
       {% else %}
         <span class="badge hiddenbadge">{% trans "Waiting for review" %}</span>
       {% endif %}
-      {% if photo.caption %}<p>{{ photo.caption }}</p>{% endif %}
+      <form method="post" action="{% url 'edit_photo_caption' stand.slug photo.pk %}" class="captionform">{% csrf_token %}
+        <label class="muted" for="cap{{ photo.pk }}">{% trans "Caption — shows on your listing and is read aloud by screen readers" %}</label>
+        <input type="text" id="cap{{ photo.pk }}" name="caption" maxlength="200"
+               value="{{ photo.caption }}" placeholder="{% trans 'Add a caption' %}">
+        <button type="submit" class="btn">{% trans "Save caption" %}</button>
+      </form>
       <div class="today-actions">
+        {% if not forloop.first %}
+          <form method="post" action="{% url 'move_photo' stand.slug photo.pk %}">{% csrf_token %}
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" class="btn" title="{% trans 'Move earlier' %}">↑ {% trans "Move up" %}</button>
+          </form>
+        {% endif %}
+        {% if not forloop.last %}
+          <form method="post" action="{% url 'move_photo' stand.slug photo.pk %}">{% csrf_token %}
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" class="btn" title="{% trans 'Move later' %}">↓ {% trans "Move down" %}</button>
+          </form>
+        {% endif %}
         {% if photo.approved and stand.list_photo_id != photo.pk %}
           <form method="post" action="{% url 'set_list_photo' stand.slug photo.pk %}">{% csrf_token %}
             <button type="submit" class="btn">{% trans "Use as list thumbnail" %}</button>

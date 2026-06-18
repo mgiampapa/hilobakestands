@@ -25,6 +25,10 @@ urlpatterns = [
          name='delete_photo'),
     path('my/<slug:slug>/photos/<int:pk>/make-thumb/', views.set_list_photo,
          name='set_list_photo'),
+    path('my/<slug:slug>/photos/<int:pk>/caption/', views.edit_photo_caption,
+         name='edit_photo_caption'),
+    path('my/<slug:slug>/photos/<int:pk>/move/', views.move_photo,
+         name='move_photo'),
 ]
 
 if settings.DEBUG:

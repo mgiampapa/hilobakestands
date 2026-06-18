@@ -601,14 +601,20 @@ def stand_photos(request, slug):
         return redirect('my_stands')
     stand = get_object_or_404(Stand, slug=slug, owner=request.user)
 
+    from .forms import PhotoCaptionForm
+
     if request.method == 'POST':
         upload = request.FILES.get('photo')
+        caption_form = PhotoCaptionForm(request.POST)
         if not upload:
             messages.error(request, _('Pick a photo to upload first.'))
         elif stand.photos.count() >= MAX_GALLERY_PHOTOS:
             messages.error(request, _(
                 'Your gallery is full (%(n)s photos) — delete one to make '
                 'room.') % {'n': MAX_GALLERY_PHOTOS})
+        elif not caption_form.is_valid():
+            # Caption text moderation (denylist/threat) before any image work.
+            messages.error(request, caption_form.errors['caption'][0])
         else:
             try:
                 content, _name = process_upload(upload)
@@ -617,7 +623,7 @@ def stand_photos(request, slug):
             else:
                 _photo, verdict = _moderate_and_store(
                     request, stand,
-                    content, request.POST.get('caption', '').strip()[:200])
+                    content, caption_form.cleaned_data['caption'])
                 if verdict == 'ok':
                     messages.success(request, _(
                         'Photo added — it is live on your listing.'))
@@ -670,4 +676,51 @@ def set_list_photo(request, slug, pk):
                                   'updated_at'])
         messages.success(request, _(
             'That photo is now your thumbnail on the list page.'))
+    return redirect('stand_photos', slug=stand.slug)
+
+
+def edit_photo_caption(request, slug, pk):
+    """Edit a gallery photo's caption (= public figcaption + image alt) after
+    upload. Same text moderation as the upload path and the stand free-text
+    fields, via PhotoCaptionForm. An empty caption clears it."""
+    from .forms import PhotoCaptionForm
+
+    if not request.user.is_authenticated:
+        return redirect('my_stands')
+    stand = get_object_or_404(Stand, slug=slug, owner=request.user)
+    photo = get_object_or_404(stand.photos, pk=pk)
+    if request.method == 'POST':
+        form = PhotoCaptionForm(request.POST)
+        if form.is_valid():
+            photo.caption = form.cleaned_data['caption']
+            photo.save(update_fields=['caption'])
+            messages.success(request, _('Caption updated.'))
+        else:
+            messages.error(request, form.errors['caption'][0])
+    return redirect('stand_photos', slug=stand.slug)
+
+
+def move_photo(request, slug, pk):
+    """Reorder a gallery photo up/down. Swaps with its neighbour, then
+    renumbers ALL of the stand's photos sequentially — this self-heals legacy
+    rows that share sort_order=0. Public detail + dashboard both order by
+    sort_order, so the new order shows everywhere."""
+    from .models import Photo
+
+    if not request.user.is_authenticated:
+        return redirect('my_stands')
+    stand = get_object_or_404(Stand, slug=slug, owner=request.user)
+    get_object_or_404(stand.photos, pk=pk)  # 404 if not this stand's photo
+    if request.method == 'POST':
+        direction = request.POST.get('direction')
+        photos = list(stand.photos.all())  # Meta ordering: sort_order, id
+        idx = next((i for i, p in enumerate(photos) if p.pk == pk), None)
+        if idx is not None:
+            swap = idx - 1 if direction == 'up' else (
+                idx + 1 if direction == 'down' else None)
+            if swap is not None and 0 <= swap < len(photos):
+                photos[idx], photos[swap] = photos[swap], photos[idx]
+        for i, p in enumerate(photos):
+            p.sort_order = i
+        Photo.objects.bulk_update(photos, ['sort_order'])
     return redirect('stand_photos', slug=stand.slug)

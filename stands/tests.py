@@ -1652,6 +1652,92 @@ class PhotoPipelineTests(TestCase):
                                      args=['photo-stand', p.pk]))
         self.assertEqual(r.status_code, 404)
 
+    # ----- caption editing + reordering (owner photo management) -----------
+    def _mk_photos(self, n):
+        """Create n approved photos directly, sort_order 0..n-1."""
+        from stands.models import Photo
+        return [Photo.objects.create(
+            stand=self.stand, image=_upload_file(), approved=True,
+            sort_order=i, caption='cap%d' % i) for i in range(n)]
+
+    def test_edit_caption_updates_and_clears(self):
+        p = self._mk_photos(1)[0]
+        url = reverse('edit_photo_caption', args=['photo-stand', p.pk])
+        self.client.post(url, {'caption': '  Fresh malasadas  '})
+        p.refresh_from_db()
+        self.assertEqual(p.caption, 'Fresh malasadas')   # stripped
+        self.client.post(url, {'caption': ''})            # empty clears
+        p.refresh_from_db()
+        self.assertEqual(p.caption, '')
+
+    def test_edit_caption_truncated_server_side(self):
+        p = self._mk_photos(1)[0]
+        url = reverse('edit_photo_caption', args=['photo-stand', p.pk])
+        self.client.post(url, {'caption': 'y' * 500})
+        p.refresh_from_db()
+        self.assertEqual(p.caption, 'y' * 200)
+
+    def test_edit_caption_blocked_by_moderation(self):
+        p = self._mk_photos(1)[0]
+        url = reverse('edit_photo_caption', args=['photo-stand', p.pk])
+        self.client.post(url, {'caption': 'I will kill you'})
+        p.refresh_from_db()
+        self.assertEqual(p.caption, 'cap0')   # unchanged — rejected
+
+    def test_upload_caption_blocked_by_moderation(self):
+        # Caption moderation runs BEFORE image work → no photo, no Vision call.
+        with mock.patch('stands.moderation.moderate_image') as mod:
+            self.client.post(self.url, {'photo': _upload_file(),
+                                        'caption': 'I will kill you'})
+        mod.assert_not_called()
+        self.assertEqual(self.stand.photos.count(), 0)
+
+    def test_edit_caption_non_owner_404(self):
+        p = self._mk_photos(1)[0]
+        other = self.User.objects.create_user(username='intruder')
+        self.client.force_login(other)
+        r = self.client.post(
+            reverse('edit_photo_caption', args=['photo-stand', p.pk]),
+            {'caption': 'mine now'})
+        self.assertEqual(r.status_code, 404)
+
+    def test_move_photo_up_and_down(self):
+        a, b, c = self._mk_photos(3)
+        # move c up -> a, c, b
+        self.client.post(reverse('move_photo', args=['photo-stand', c.pk]),
+                         {'direction': 'up'})
+        order = list(self.stand.photos.values_list('pk', flat=True))
+        self.assertEqual(order, [a.pk, c.pk, b.pk])
+        # move a down -> c, a, b
+        self.client.post(reverse('move_photo', args=['photo-stand', a.pk]),
+                         {'direction': 'down'})
+        order = list(self.stand.photos.values_list('pk', flat=True))
+        self.assertEqual(order, [c.pk, a.pk, b.pk])
+
+    def test_move_noop_at_end(self):
+        a, b, c = self._mk_photos(3)
+        self.client.post(reverse('move_photo', args=['photo-stand', a.pk]),
+                         {'direction': 'up'})   # already first
+        order = list(self.stand.photos.values_list('pk', flat=True))
+        self.assertEqual(order, [a.pk, b.pk, c.pk])
+
+    def test_move_renumbers_legacy_zeros(self):
+        from stands.models import Photo
+        a, b, c = self._mk_photos(3)
+        Photo.objects.filter(stand=self.stand).update(sort_order=0)  # legacy
+        self.client.post(reverse('move_photo', args=['photo-stand', c.pk]),
+                         {'direction': 'up'})
+        rows = list(self.stand.photos.values_list('sort_order', flat=True))
+        self.assertEqual(rows, [0, 1, 2])   # renumbered, contiguous
+
+    def test_move_non_owner_404(self):
+        a, _b, _c = self._mk_photos(3)
+        other = self.User.objects.create_user(username='intruder2')
+        self.client.force_login(other)
+        r = self.client.post(reverse('move_photo', args=['photo-stand', a.pk]),
+                             {'direction': 'up'})
+        self.assertEqual(r.status_code, 404)
+
 
 class ModerationChainTests(TestCase):
     """Unit tests for the SafeSearch → homelab → unavailable chain."""

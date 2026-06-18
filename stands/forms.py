@@ -293,3 +293,22 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
         v = v[:200]
         _reject_if_blocked(v)
         return v
+
+
+class PhotoCaptionForm(forms.Form):
+    """A gallery photo's caption — owner free text that becomes the public
+    figcaption AND the image alt. Run through the SAME moderation as the other
+    submitter free-text fields (`_reject_if_blocked`: denylist/threat now, and
+    any future TextModerator layers automatically). Used by both the upload
+    path and the after-the-fact caption edit.
+
+    No `max_length` on the field on purpose: the HTML maxlength is bypassable,
+    so we accept whatever is posted and cap server-side in clean (matching the
+    original upload behavior + its regression test)."""
+    caption = forms.CharField(required=False, strip=True,
+                              widget=forms.TextInput)
+
+    def clean_caption(self):
+        v = (self.cleaned_data.get('caption') or '').strip()[:200]
+        _reject_if_blocked(v)
+        return v
