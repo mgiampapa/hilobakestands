@@ -67,7 +67,7 @@
   <h3>{% trans "Find them" %}</h3>
   <p>
     {% if stand.instagram %}<a class="btn" rel="nofollow noopener noreferrer" href="https://instagram.com/{{ stand.instagram|cut:'@' }}">Instagram</a>{% endif %}
-    {% if stand.facebook %}<a class="btn" rel="nofollow noopener noreferrer" href="https://facebook.com/{{ stand.facebook }}">Facebook</a>{% endif %}
+    {% if stand.facebook %}<a class="btn" rel="nofollow noopener noreferrer" href="{{ stand.facebook }}">Facebook</a>{% endif %}
     {% if stand.tiktok %}<a class="btn" rel="nofollow noopener noreferrer" href="https://tiktok.com/@{{ stand.tiktok|cut:'@' }}">TikTok</a>{% endif %}
     {% if stand.website %}<a class="btn" rel="nofollow noopener noreferrer" href="{{ stand.website }}">{% trans "Website" %}</a>{% endif %}
     {% if stand.phone %}<a class="btn" href="tel:{{ stand.phone }}">{{ stand.phone }}</a>{% endif %}

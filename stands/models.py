@@ -92,7 +92,7 @@ class Stand(models.Model):
 
     phone = models.CharField(max_length=30, blank=True)
     instagram = models.CharField(max_length=100, blank=True)
-    facebook = models.CharField(max_length=100, blank=True)
+    facebook = models.CharField(max_length=255, blank=True)  # stored as full URL
     tiktok = models.CharField(max_length=100, blank=True)
     website = models.URLField(blank=True)
     email = models.EmailField(blank=True)

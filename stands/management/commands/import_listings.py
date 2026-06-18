@@ -71,6 +71,19 @@ def clean_handle(s):
     return (s or '').strip().lstrip('@')
 
 
+def fb_url(s):
+    """Normalize a sheet Facebook cell to a full canonical URL, reusing the
+    same parser the forms use (this importer was the original source of dirty
+    FB data — it bypassed form cleaning). Bad/odd values import blank rather
+    than aborting the whole sheet; fix them in the admin."""
+    from django.core.exceptions import ValidationError
+    from stands.forms import normalize_facebook
+    try:
+        return normalize_facebook(s)
+    except ValidationError:
+        return ''
+
+
 class Command(BaseCommand):
     help = 'Import stands from the listings.xlsx data-collection sheet.'
 
@@ -143,7 +156,7 @@ class Command(BaseCommand):
                     attendance=attendance,
                     phone=get(row, 'Phone'),
                     instagram=clean_handle(get(row, 'Instagram')),
-                    facebook=clean_handle(get(row, 'Facebook')),
+                    facebook=fb_url(get(row, 'Facebook')),
                     tiktok=clean_handle(get(row, 'TikTok')),
                     website=get(row, 'Website'),
                     email=get(row, 'Email'),

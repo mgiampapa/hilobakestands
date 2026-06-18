@@ -1121,7 +1121,7 @@ class EditStandSanitizationTests(TestCase):
                        website='https://example.com', email='hi@example.com')
         self.assertRedirects(r, reverse('my_stands'))
         self.stand.refresh_from_db()
-        self.assertEqual(self.stand.facebook, 'mybakestand')
+        self.assertEqual(self.stand.facebook, 'https://www.facebook.com/mybakestand')
         self.assertEqual(self.stand.tiktok, 'bakes')  # @ stripped
         self.assertEqual(self.stand.website, 'https://example.com')
         self.assertEqual(self.stand.email, 'hi@example.com')
@@ -1132,8 +1132,40 @@ class EditStandSanitizationTests(TestCase):
                    tiktok='https://www.tiktok.com/@tokbaker?lang=en')
         self.stand.refresh_from_db()
         self.assertEqual(self.stand.instagram, 'my.stand')
-        self.assertEqual(self.stand.facebook, 'My-Page')
+        self.assertEqual(self.stand.facebook, 'https://www.facebook.com/My-Page')
         self.assertEqual(self.stand.tiktok, 'tokbaker')
+
+    def test_facebook_shapes_normalized(self):
+        from stands.forms import normalize_facebook
+        base = 'https://www.facebook.com/'
+        cases = {
+            'mybakestand': base + 'mybakestand',
+            '@MyBakeStand': base + 'MyBakeStand',
+            'facebook.com/MyBakeStand': base + 'MyBakeStand',
+            'https://www.facebook.com/My-Bake.Stand/': base + 'My-Bake.Stand',
+            'https://m.facebook.com/My-Page/about': base + 'My-Page',
+            'https://facebook.com/profile.php?id=100012345678901':
+                base + 'profile.php?id=100012345678901',
+            'fb.com/profile.php?id=42': base + 'profile.php?id=42',
+            'facebook.com/pages/Sallys-Bakes/123456789': base + 'pages/Sallys-Bakes/123456789',
+            '': '',
+            '   ': '',
+        }
+        for raw, expected in cases.items():
+            self.assertEqual(normalize_facebook(raw), expected, raw)
+
+    def test_facebook_full_url_idempotent(self):
+        from stands.forms import normalize_facebook
+        url = 'https://www.facebook.com/profile.php?id=99'
+        self.assertEqual(normalize_facebook(url), url)
+
+    def test_facebook_hostile_rejected(self):
+        from django.core.exceptions import ValidationError
+        from stands.forms import normalize_facebook
+        for bad in ['"><script>x</script>', 'javascript:alert(1)',
+                    'facebook.com/profile.php']:
+            with self.assertRaises(ValidationError):
+                normalize_facebook(bad)
 
     def test_hostile_handle_rejected(self):
         r = self._post(instagram='javascript:alert(1)')

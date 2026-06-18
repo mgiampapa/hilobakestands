@@ -87,6 +87,47 @@ def _clean_handle(value, domains, pattern, label):
     return v
 
 
+_FB_INVALID = _('That does not look like a valid Facebook page — paste the '
+                'page link, e.g. facebook.com/mybakestand.')
+
+
+def normalize_facebook(value):
+    """Parse any Facebook reference into a canonical full URL.
+
+    Accepts a bare vanity name, a full/partial profile URL (any of
+    facebook.com / fb.com / m.facebook.com / www., http(s) optional), a numeric
+    `profile.php?id=NNN`, or a `pages/Name/NNN` link. Returns
+    `https://www.facebook.com/...` or '' when blank.
+
+    The URL is rebuilt from validated components — only matched characters are
+    re-emitted — so nothing untrusted survives into the rendered href. Raises
+    ValidationError on anything unrecognizable. Shared by the owner-edit and
+    public-submit forms AND the spreadsheet importer (the original source of
+    dirty Facebook data, which set the field directly and bypassed cleaning).
+    """
+    v = (value or '').strip()
+    if not v:
+        return ''
+    v = re.sub(r'^https?://', '', v, flags=re.I)      # drop scheme
+    v = re.sub(r'^(www\.|m\.)+', '', v, flags=re.I)    # drop www./m.
+    for d in ('facebook.com', 'fb.com'):               # drop a known domain
+        if v.lower().startswith(d):
+            v = v[len(d):]
+            break
+    v = v.lstrip('/')
+    base = 'https://www.facebook.com/'
+    m = re.match(r'profile\.php\?id=(\d+)', v, flags=re.I)        # numeric id
+    if m:
+        return base + 'profile.php?id=' + m.group(1)
+    m = re.match(r'pages/([A-Za-z0-9.\-]{1,80})/(\d+)', v, flags=re.I)  # /pages/
+    if m:
+        return base + 'pages/' + m.group(1) + '/' + m.group(2)
+    vanity = v.split('/')[0].split('?')[0].lstrip('@')           # vanity name
+    if re.fullmatch(r'[A-Za-z0-9.\-]{1,80}', vanity) and vanity.lower() != 'profile.php':
+        return base + vanity
+    raise ValidationError(_FB_INVALID)
+
+
 class SanitizedStandFieldsMixin:
     """Input sanitization shared by the owner-edit and public-submit forms.
     Social handles are whitelisted to handle characters (they get interpolated
@@ -105,10 +146,9 @@ class SanitizedStandFieldsMixin:
                              r'[A-Za-z0-9._]{1,24}', _('TikTok handle'))
 
     def clean_facebook(self):
-        # FB vanity URLs allow dots and hyphens; numeric page IDs too.
-        return _clean_handle(self.cleaned_data.get('facebook'),
-                             ['facebook.com', 'fb.com', 'm.facebook.com'],
-                             r'[A-Za-z0-9.\-]{1,80}', _('Facebook page'))
+        # FB is messier than IG/TikTok (vanity names, numeric profile.php?id,
+        # /pages/Name/ID) — normalize to a full canonical URL stored as-is.
+        return normalize_facebook(self.cleaned_data.get('facebook'))
 
     def clean_phone(self):
         v = (self.cleaned_data.get('phone') or '').strip()
