@@ -75,7 +75,7 @@
 
   {% for photo in photos %}
     <figure style="margin:0.5rem 0 0">
-      <img src="{{ photo.image.url }}" alt="{{ photo.caption }}" style="max-width:100%; border-radius:12px; display:block">
+      <img src="{{ photo.image.url }}" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% blocktrans with name=stand.name %}Photo from {{ name }}{% endblocktrans %}{% endif %}" style="max-width:100%; border-radius:12px; display:block">
       {% if photo.caption %}<figcaption class="muted" style="margin-top:0.25rem">{{ photo.caption }}</figcaption>{% endif %}
     </figure>
   {% endfor %}

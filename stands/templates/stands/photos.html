@@ -26,7 +26,7 @@
 
 {% for photo in photos %}
   <div class="card photorow">
-    <img src="{{ photo.image.url }}" alt="{{ photo.caption }}" class="photothumb" loading="lazy">
+    <img src="{{ photo.image.url }}" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% blocktrans with name=stand.name %}Photo from {{ name }}{% endblocktrans %}{% endif %}" class="photothumb" loading="lazy">
     <div class="photometa">
       {% if photo.approved %}
         <span class="badge open">{% trans "Live" %}</span>
