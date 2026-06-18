@@ -1,0 +1,41 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Claim your stand" %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{% trans "Is this your stand?" %}</h1>
+
+  <p>{% blocktrans %}HiloBakeStands.com is a free local directory of bake stands,
+  food trucks, farm stands, and pop-ups around Hilo — a simple way for locals and
+  visitors to find ono grindz, see when places are open, and get directions. If
+  you run a stand we listed, you can claim it and take over the details yourself.{% endblocktrans %}</p>
+
+  <h3>{% trans "What claiming gets you" %}</h3>
+  <p>{% blocktrans %}It's completely free, and there's nothing to buy. Once a
+  listing is yours, you set your hours, flip an open/closed-today switch, add
+  photos and specials, and update your contact links and payment options. Most
+  owners just point people to their socials — that's fine too.{% endblocktrans %}</p>
+
+  <h3>{% trans "Don't want to be listed?" %}</h3>
+  <p>{% blocktrans %}That's okay — claim your stand and you can hide it, or get in
+  touch and we'll take it down. One honest heads-up: because anyone can suggest a
+  stand, a community member could add yours again later. Claiming it is the surest
+  way to stay in control of how (or whether) it shows up.{% endblocktrans %}</p>
+
+  <h3>{% trans "How to claim it" %}</h3>
+  <p>{% blocktrans %}Claiming is owner-initiated, so just reach out and we'll
+  figure it out together — there's no form to wrestle with. Two easy ways:{% endblocktrans %}</p>
+  <ul>
+    <li>{% blocktrans %}Email <a href="mailto:matt@hilobakestands.com?subject=Claiming%20my%20stand">matt@hilobakestands.com</a>
+    and let us know which stand is yours.{% endblocktrans %}</li>
+    <li>{% blocktrans %}Or message us from your business socials to
+    <a rel="nofollow noopener noreferrer" href="https://instagram.com/hilobakestands">@hilobakestands on Instagram</a>
+    — a DM from your own account is an easy way to show the stand is really yours.{% endblocktrans %}</li>
+  </ul>
+  <p class="muted">{% blocktrans %}We're also making the rounds in person — if we
+  haven't reached you yet, we may swing by and leave a claim slip at your cashbox
+  as we get around town.{% endblocktrans %}</p>
+
+  <p style="margin-top:1.5rem"><a class="btn" href="{% url 'stand_list' %}">{% trans "Back to all stands" %}</a></p>
+</div>
+{% endblock %}

@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="{% static 'stands/hibiscus.svg' %}">
 <title>{% block title %}HiloBakeStands{% endblock %}</title>
+{# SEO / social preview. Per-page views may pass meta_description, og_title,
+   og_type, og_image; otherwise these site defaults apply. Twitter Cards fall
+   back to the og: tags, so we only declare the card type. #}
+<meta name="description" content="{% if meta_description %}{{ meta_description }}{% else %}Find Hilo's bake stands, food trucks, and pop-ups — hours, locations, and what they're selling.{% endif %}">
+<link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+<meta property="og:site_name" content="HiloBakeStands">
+<meta property="og:type" content="{{ og_type|default:'website' }}">
+<meta property="og:title" content="{% if og_title %}{{ og_title }}{% else %}HiloBakeStands — Hilo bake stands, food trucks &amp; pop-ups{% endif %}">
+<meta property="og:description" content="{% if meta_description %}{{ meta_description }}{% else %}Find Hilo's bake stands, food trucks, and pop-ups — hours, locations, and what they're selling.{% endif %}">
+<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+<meta property="og:image" content="{% if og_image %}{{ og_image }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'stands/og-image.png' %}{% endif %}">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
     --green: #2e7d5b; --sand: #fdf6ec; --coral: #e76f51;
@@ -123,6 +135,9 @@
   footer { text-align: center; color: #888; font-size: 0.8rem; padding: 2rem 1rem; }
   #map { height: 70vh; border-radius: 12px; border: 1px solid var(--soft); }
   .muted { color: #888; font-size: 0.85rem; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0;
+             margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+             white-space: nowrap; border: 0; }
 </style>
 {% block extra_head %}{% endblock %}
 </head>

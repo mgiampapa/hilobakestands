@@ -109,10 +109,27 @@ def stand_detail(request, slug):
         Stand.objects.prefetch_related('categories', 'payment_methods',
                                        'weekly_hours', 'photos'),
         slug=slug, status=Stand.Status.PUBLISHED, auto_hidden=False)
+    photos = stand.photos.filter(approved=True)
+    # Per-page SEO/social preview. Description falls back to a generated line so
+    # the tag is never empty; og:image uses the first approved photo if any.
+    desc = (stand.description or '').strip()
+    if desc:
+        meta_description = (desc[:157] + '…') if len(desc) > 158 else desc
+    else:
+        meta_description = '%s — a %s in Hilo on HiloBakeStands.' % (
+            stand.name, stand.get_location_type_display())
+    og_image = None
+    first = photos.first()
+    if first:
+        og_image = request.build_absolute_uri(first.image.url)
     return render(request, 'stands/detail.html', {
         'stand': stand,
-        'photos': stand.photos.filter(approved=True),
+        'photos': photos,
         'weekdays': dict(stand.weekly_hours.model.WEEKDAYS),
+        'meta_description': meta_description,
+        'og_title': '%s — HiloBakeStands' % stand.name,
+        'og_type': 'place',
+        'og_image': og_image,
     })
 
 
@@ -724,3 +741,36 @@ def move_photo(request, slug, pk):
             p.sort_order = i
         Photo.objects.bulk_update(photos, ['sort_order'])
     return redirect('stand_photos', slug=stand.slug)
+
+
+def robots_txt(request):
+    """Allow crawling, keep crawlers out of private/owner areas, and point them
+    at the sitemap. Served at /robots.txt."""
+    lines = [
+        'User-agent: *',
+        'Disallow: /admin/',
+        'Disallow: /accounts/',
+        'Disallow: /my/',
+        'Disallow: /claim/',
+        '',
+        'Sitemap: %s/sitemap.xml' % settings.SITE_BASE_URL.rstrip('/'),
+        '',
+    ]
+    from django.http import HttpResponse
+    return HttpResponse('\n'.join(lines), content_type='text/plain')
+
+
+def security_txt(request):
+    """RFC 9116 security contact, served at /.well-known/security.txt. Expires
+    is computed ~1 year ahead so it never silently goes stale."""
+    from django.http import HttpResponse
+    from django.utils import timezone
+    expires = (timezone.now() + timezone.timedelta(days=365)).strftime(
+        '%Y-%m-%dT%H:%M:%SZ')
+    lines = [
+        'Contact: mailto:matt@hilobakestands.com',
+        'Expires: %s' % expires,
+        'Preferred-Languages: en',
+        '',
+    ]
+    return HttpResponse('\n'.join(lines), content_type='text/plain')

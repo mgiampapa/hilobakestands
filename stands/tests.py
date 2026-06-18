@@ -1492,6 +1492,57 @@ def _upload_file(name='snack.jpg', size=(400, 300)):
                               content_type='image/jpeg')
 
 
+class SeoTests(TestCase):
+    def test_robots_txt(self):
+        r = self.client.get('/robots.txt')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'text/plain')
+        body = r.content.decode()
+        for path in ['/admin/', '/accounts/', '/my/', '/claim/']:
+            self.assertIn('Disallow: %s' % path, body)
+        self.assertIn('Sitemap: https://hilobakestands.com/sitemap.xml', body)
+
+    def test_security_txt(self):
+        r = self.client.get('/.well-known/security.txt')
+        self.assertEqual(r.status_code, 200)
+        body = r.content.decode()
+        self.assertIn('Contact: mailto:matt@hilobakestands.com', body)
+        self.assertIn('Expires:', body)
+
+    def test_sitemap_includes_unverified_excludes_hidden(self):
+        pub = make_stand(name='Pub', slug='pub')
+        unver = make_stand(name='Unver', slug='unver',
+                           verification=Stand.Verification.UNVERIFIED)
+        draft = make_stand(name='Draft', slug='draft',
+                           status=Stand.Status.DRAFT)
+        hidden = make_stand(name='Hid', slug='hid', auto_hidden=True)
+        r = self.client.get('/sitemap.xml')
+        self.assertEqual(r.status_code, 200)
+        body = r.content.decode()
+        self.assertIn(pub.get_absolute_url(), body)
+        self.assertIn(unver.get_absolute_url(), body)   # unverified INCLUDED
+        self.assertNotIn(draft.get_absolute_url(), body)
+        self.assertNotIn(hidden.get_absolute_url(), body)
+        self.assertIn('https://', body)                 # absolute, https
+
+    def test_detail_meta_and_canonical(self):
+        s = make_stand(name='Meta Stand', slug='meta-stand',
+                       description='Best malasadas in Hilo, fresh daily.')
+        r = self.client.get(s.get_absolute_url())
+        html = r.content.decode()
+        self.assertIn('Best malasadas in Hilo', html)          # meta description
+        self.assertIn('property="og:title"', html)
+        self.assertIn('Meta Stand — HiloBakeStands', html)     # og:title
+        self.assertIn('rel="canonical"', html)
+        self.assertIn(s.get_absolute_url(), html)
+
+    def test_one_h1_per_page(self):
+        make_stand(name='H1 Stand', slug='h1-stand')
+        for url in ['/', '/map/', '/submit/', '/claim-your-stand/']:
+            html = self.client.get(url).content.decode()
+            self.assertEqual(html.count('<h1'), 1, url)
+
+
 class SocialLinksTests(TestCase):
     def test_threads_link_and_brand_icons_render(self):
         s = make_stand(name='Social Stand', slug='social-stand',
