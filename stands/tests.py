@@ -1536,6 +1536,16 @@ class SeoTests(TestCase):
         self.assertIn('rel="canonical"', html)
         self.assertIn(s.get_absolute_url(), html)
 
+    def test_head_clean_and_og_inside_head(self):
+        # A stray text node in <head> (e.g. a multi-line {# #} that renders)
+        # forces the parser to close <head> early, pushing og: tags into
+        # <body> where Facebook ignores them. Guard both failure modes.
+        html = self.client.get('/').content.decode()
+        self.assertNotIn('Per-page views may pass', html)   # comment must not render
+        head = html.split('</head>')[0]
+        for prop in ['og:title', 'og:description', 'og:image', 'og:url']:
+            self.assertIn('property="%s"' % prop, head, prop)
+
     def test_default_og_image_has_dimensions(self):
         html = self.client.get('/').content.decode()
         self.assertIn('property="og:image:width" content="1200"', html)

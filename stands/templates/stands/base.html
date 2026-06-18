@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="{% static 'stands/hibiscus.svg' %}">
 <title>{% block title %}HiloBakeStands{% endblock %}</title>
-{# SEO / social preview. Per-page views may pass meta_description, og_title,
-   og_type, og_image; otherwise these site defaults apply. Twitter Cards fall
-   back to the og: tags, so we only declare the card type. #}
+{% comment %}SEO / social preview. Per-page views may pass meta_description,
+og_title, og_type, og_image; otherwise these site defaults apply. Twitter Cards
+fall back to the og: tags, so we only declare the card type.{% endcomment %}
 <meta name="description" content="{% if meta_description %}{{ meta_description }}{% else %}Find Hilo's bake stands, food trucks, and pop-ups — hours, locations, and what they're selling.{% endif %}">
 <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
 <meta property="og:site_name" content="HiloBakeStands">
