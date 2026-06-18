@@ -1536,6 +1536,12 @@ class SeoTests(TestCase):
         self.assertIn('rel="canonical"', html)
         self.assertIn(s.get_absolute_url(), html)
 
+    def test_default_og_image_has_dimensions(self):
+        html = self.client.get('/').content.decode()
+        self.assertIn('property="og:image:width" content="1200"', html)
+        self.assertIn('property="og:image:height" content="630"', html)
+        self.assertIn('property="og:image:type" content="image/png"', html)
+
     def test_one_h1_per_page(self):
         make_stand(name='H1 Stand', slug='h1-stand')
         for url in ['/', '/map/', '/submit/', '/claim-your-stand/']:
