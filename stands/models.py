@@ -94,6 +94,7 @@ class Stand(models.Model):
     instagram = models.CharField(max_length=100, blank=True)
     facebook = models.CharField(max_length=255, blank=True)  # stored as full URL
     tiktok = models.CharField(max_length=100, blank=True)
+    threads = models.CharField(max_length=100, blank=True)  # IG-style handle
     website = models.URLField(blank=True)
     email = models.EmailField(blank=True)
 

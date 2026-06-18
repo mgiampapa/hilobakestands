@@ -1129,11 +1129,27 @@ class EditStandSanitizationTests(TestCase):
     def test_pasted_profile_urls_normalized(self):
         self._post(instagram='https://www.instagram.com/@my.stand/?hl=en',
                    facebook='https://m.facebook.com/My-Page/about',
-                   tiktok='https://www.tiktok.com/@tokbaker?lang=en')
+                   tiktok='https://www.tiktok.com/@tokbaker?lang=en',
+                   threads='https://www.threads.com/@my.stand?xmt=1')
         self.stand.refresh_from_db()
         self.assertEqual(self.stand.instagram, 'my.stand')
         self.assertEqual(self.stand.facebook, 'https://www.facebook.com/My-Page')
         self.assertEqual(self.stand.tiktok, 'tokbaker')
+        self.assertEqual(self.stand.threads, 'my.stand')
+
+    def test_threads_handle_normalized(self):
+        for raw in ['threadsbaker', '@threadsbaker',
+                    'threads.com/@threadsbaker',
+                    'https://www.threads.net/@threadsbaker']:
+            self._post(threads=raw)
+            self.stand.refresh_from_db()
+            self.assertEqual(self.stand.threads, 'threadsbaker', raw)
+
+    def test_threads_hostile_rejected(self):
+        r = self._post(threads='"><script>x</script>')
+        self.assertEqual(r.status_code, 200)  # form error, not saved
+        self.stand.refresh_from_db()
+        self.assertEqual(self.stand.threads, '')
 
     def test_facebook_shapes_normalized(self):
         from stands.forms import normalize_facebook
@@ -1474,6 +1490,25 @@ def _upload_file(name='snack.jpg', size=(400, 300)):
     from django.core.files.uploadedfile import SimpleUploadedFile
     return SimpleUploadedFile(name, _test_image_bytes(size=size),
                               content_type='image/jpeg')
+
+
+class SocialLinksTests(TestCase):
+    def test_threads_link_and_brand_icons_render(self):
+        s = make_stand(name='Social Stand', slug='social-stand',
+                       instagram='igbaker', threads='thbaker',
+                       facebook='https://www.facebook.com/fbpage',
+                       tiktok='ttbaker')
+        r = self.client.get(s.get_absolute_url())
+        self.assertContains(r, 'https://www.threads.com/@thbaker')
+        self.assertContains(r, '>Threads</a>')
+        self.assertContains(r, 'class="sicon"')        # inline brand glyphs
+        self.assertContains(r, 'fill="#FF0069"')       # instagram
+        self.assertContains(r, 'fill="#0866FF"')       # facebook
+
+    def test_no_threads_pill_when_unset(self):
+        s = make_stand(name='No Threads', slug='no-threads')
+        r = self.client.get(s.get_absolute_url())
+        self.assertNotContains(r, 'threads.com')
 
 
 class PhotoPipelineTests(TestCase):

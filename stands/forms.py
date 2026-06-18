@@ -145,6 +145,13 @@ class SanitizedStandFieldsMixin:
                              ['tiktok.com'],
                              r'[A-Za-z0-9._]{1,24}', _('TikTok handle'))
 
+    def clean_threads(self):
+        # Threads shares the Instagram username; profile URLs are
+        # threads.com/@handle (threads.net now redirects to .com).
+        return _clean_handle(self.cleaned_data.get('threads'),
+                             ['threads.com', 'threads.net'],
+                             r'[A-Za-z0-9._]{1,30}', _('Threads handle'))
+
     def clean_facebook(self):
         # FB is messier than IG/TikTok (vanity names, numeric profile.php?id,
         # /pages/Name/ID) — normalize to a full canonical URL stored as-is.
@@ -204,7 +211,7 @@ class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
     class Meta:
         model = Stand
         fields = ['location_type', 'description', 'phone', 'instagram',
-                  'facebook', 'tiktok', 'website', 'email',
+                  'facebook', 'tiktok', 'threads', 'website', 'email',
                   'payment_methods', 'status']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 5, 'maxlength': 2000}),
@@ -218,6 +225,7 @@ class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
             'instagram': _('Instagram handle'),
             'facebook': _('Facebook page'),
             'tiktok': _('TikTok handle'),
+            'threads': _('Threads handle'),
             'website': _('Website'),
             'email': _('Email'),
             'payment_methods': _('Payment methods you accept'),
@@ -227,6 +235,7 @@ class StandBasicInfoForm(SanitizedStandFieldsMixin, forms.ModelForm):
             'instagram': _('Handle or profile link — either works.'),
             'facebook': _('Page name or profile link — either works.'),
             'tiktok': _('Handle or profile link — either works.'),
+            'threads': _('Handle or profile link — either works.'),
             'email': _('Shown publicly on your listing.'),
         }
 
@@ -253,7 +262,8 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
         model = Stand
         fields = ['name', 'location_type', 'description', 'street_address',
                   'attendance', 'categories', 'payment_methods',
-                  'phone', 'instagram', 'facebook', 'tiktok', 'website', 'email']
+                  'phone', 'instagram', 'facebook', 'tiktok', 'threads',
+                  'website', 'email']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 5, 'maxlength': 2000}),
             'categories': forms.CheckboxSelectMultiple,
@@ -269,7 +279,8 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
             'categories': _('Food categories'),
             'payment_methods': _('Payment accepted (if known)'),
             'instagram': _('Instagram'), 'facebook': _('Facebook'),
-            'tiktok': _('TikTok'), 'website': _('Website'), 'email': _('Email'),
+            'tiktok': _('TikTok'), 'threads': _('Threads'),
+            'website': _('Website'), 'email': _('Email'),
         }
         help_texts = {
             'description': _('A sentence or two is plenty.'),
