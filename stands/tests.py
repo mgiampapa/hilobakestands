@@ -2019,3 +2019,101 @@ class UsageLogMiddlewareTests(TestCase):
         rows = [ln for ln in out.getvalue().splitlines()
                 if re.match(r'\s*\d{4}-\d{2}-\d{2}\s', ln)]
         self.assertEqual(rows[-1].split()[-2:], ['2', '1'])
+
+
+class ScanStatusTests(TestCase):
+    """Scan-to-open/close QR feature. The QR points at a GET landing page that
+    must NOT mutate on its own (only its JS POST to set_today does)."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(username='baker')
+        self.stand = make_stand(name='Sugar Wave', slug='sugar-wave',
+                                owner=self.owner)
+
+    def _scan(self, action):
+        return reverse('scan_status', args=['sugar-wave', action])
+
+    def test_get_does_not_mutate(self):
+        """The critical safety property: fetching the scan URL (as a scanner,
+        prefetcher, or link previewer would) changes nothing."""
+        self.client.force_login(self.owner)
+        r = self.client.get(self._scan('open'))
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(self.stand.todays_override())
+        self.assertEqual(DayOverride.objects.count(), 0)
+
+    def test_owner_page_carries_the_real_post_form(self):
+        self.client.force_login(self.owner)
+        r = self.client.get(self._scan('open'))
+        self.assertContains(r, reverse('set_today', args=['sugar-wave']))
+        self.assertContains(r, 'value="open"')
+
+    def test_mutation_happens_via_set_today_post(self):
+        """The JS posts to set_today — that path (already the dashboard's) does
+        flip the override."""
+        self.client.force_login(self.owner)
+        r = self.client.post(reverse('set_today', args=['sugar-wave']),
+                             {'state': 'open'})
+        self.assertRedirects(r, reverse('my_stands'))
+        self.stand.refresh_from_db()
+        self.assertTrue(self.stand.is_open_now())
+
+    def test_anonymous_gets_signin_not_404_and_no_mutation(self):
+        r = self.client.get(self._scan('open'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Sign in with Google')
+        self.assertEqual(DayOverride.objects.count(), 0)
+
+    def test_non_owner_forbidden_and_no_acting_form(self):
+        other = self.User.objects.create_user(username='intruder')
+        self.client.force_login(other)
+        r = self.client.get(self._scan('closed'))
+        self.assertEqual(r.status_code, 403)
+        # No acting form rendered for a non-owner.
+        self.assertNotContains(r, 'id="scanform"', status_code=403)
+        self.assertEqual(DayOverride.objects.count(), 0)
+
+    def test_unknown_action_404(self):
+        self.client.force_login(self.owner)
+        r = self.client.get(self._scan('explode'))
+        self.assertEqual(r.status_code, 404)
+
+    def test_dashboard_shows_qr_codes(self):
+        self.client.force_login(self.owner)
+        r = self.client.get(reverse('my_stands'))
+        self.assertContains(r, 'Open / close from your phone')
+        # Two inline QR PNGs (open + closed).
+        self.assertEqual(r.content.decode().count('data:image/png;base64'), 2)
+
+
+class OwnerHoursTipTests(TestCase):
+    """The /stand/<slug> tip that tells a signed-in owner with no posted hours
+    how to set their status (edit hours / manual toggle / QR codes)."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.User = get_user_model()
+        self.owner = self.User.objects.create_user(username='baker')
+        self.stand = make_stand(name='Sugar Wave', slug='sugar-wave',
+                                owner=self.owner)
+
+    def test_tip_shown_to_owner_without_hours(self):
+        self.client.force_login(self.owner)
+        r = self.client.get(self.stand.get_absolute_url())
+        self.assertContains(r, 'No regular hours yet?')
+
+    def test_tip_hidden_once_hours_exist(self):
+        WeeklyHours.objects.create(
+            stand=self.stand, weekday=0,
+            open_time=datetime.time(8, 0), close_time=datetime.time(12, 0))
+        self.client.force_login(self.owner)
+        r = self.client.get(self.stand.get_absolute_url())
+        self.assertNotContains(r, 'No regular hours yet?')
+
+    def test_tip_hidden_from_non_owner(self):
+        other = self.User.objects.create_user(username='visitor')
+        self.client.force_login(other)
+        r = self.client.get(self.stand.get_absolute_url())
+        self.assertNotContains(r, 'No regular hours yet?')

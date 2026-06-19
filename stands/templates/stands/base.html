@@ -58,6 +58,14 @@ fall back to the og: tags, so we only declare the card type.{% endcomment %}
   .titlerow { display: flex; align-items: center; gap: 0.8rem;
     flex-wrap: wrap; }
   .titlerow h1 { margin: 0; }
+  .manage-sep { border: 0; border-top: 1px dashed var(--soft);
+    margin: 1.1rem 0 0.4rem; }
+  .qr-codes h3 { margin: 0.4rem 0; }
+  .qr-row { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-top: 0.6rem; }
+  .qr-tile { margin: 0; text-align: center; }
+  .qr-tile img { width: 150px; height: 150px; border: 1px solid var(--soft);
+    border-radius: 12px; background: #fff; padding: 4px; }
+  .qr-tile figcaption { margin-top: 0.3rem; font-weight: 600; }
   .btn:disabled { opacity: 0.55; cursor: not-allowed; }
   /* List cards with a thumbnail: float it right, text wraps around. */
   .card .listthumb { float: right; width: 100px; height: 100px;

@@ -50,6 +50,20 @@ def _qr_image(url):
     return qr.make_image(fill_color='#2b2b2b', back_color='white').get_image()
 
 
+def qr_data_uri(url, box_size=6, border=2):
+    """Return a base64 PNG data: URI for `url` — embeds an inline QR in a web
+    page (no separate request, prints fine). Used by the owner dashboard's
+    scan-to-open/close codes."""
+    import base64
+    qr = qrcode.QRCode(box_size=box_size, border=border)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color='#2b2b2b', back_color='white')
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+
 def _shrink_to_fit(c, text, font, size, max_width):
     while size > 14 and c.stringWidth(text, font, size) > max_width:
         size -= 1

@@ -1,0 +1,144 @@
+{% extends "stands/base.html" %}
+{% load i18n socialaccount %}
+{% block title %}{% trans "Set today's status" %} — HiloBakeStands{% endblock %}
+{% block content %}
+<style>
+  .scanflash{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:9999}
+  .scanflash.go{animation:scanpulse 1.5s ease-out forwards}
+  .flash-green{background:#2e7d5b}
+  .flash-red{background:#c0392b}
+  .flash-neutral{background:#777}
+  @keyframes scanpulse{0%{opacity:0}12%{opacity:.9}100%{opacity:0}}
+  .scancard{text-align:center}
+  .scancard .bigstatus{font-size:1.6rem;margin:.4rem 0}
+</style>
+
+{% if state == 'anon' %}
+  <div class="card scancard">
+    <h1>{% trans "Sign in to update your stand" %}</h1>
+    <p class="muted">{% trans "Sign in with Google and you'll come right back here to set today's status." %}</p>
+    <form method="post" action="{% provider_login_url 'google' next=request.get_full_path %}">{% csrf_token %}
+      <button type="submit" class="btn btn-primary">{% trans "Sign in with Google" %}</button>
+    </form>
+  </div>
+
+{% elif state == 'forbidden' %}
+  <div class="card scancard">
+    <h1>{% trans "That's not your stand" %}</h1>
+    <p class="muted">{% trans "These codes only change a stand you own. If this is your stand, claim it first." %}</p>
+    <p><a class="btn" href="{% url 'my_stands' %}">{% trans "My stand dashboard" %}</a></p>
+  </div>
+
+{% else %}
+  <div class="card scancard"
+       id="scanapp"
+       data-flash="{{ cfg.flash }}"
+       data-sound="{{ cfg.sound }}">
+    <h1 id="scanhead">{% blocktrans with name=stand.name %}Updating {{ name }}…{% endblocktrans %}</h1>
+    <p class="bigstatus" id="scanmsg">{% trans "One moment…" %}</p>
+
+    {# Fallback for no-JS: a normal POST to the real mutation endpoint. JS #}
+    {# fires this automatically on load (then shows the flash + sound). #}
+    <form id="scanform" method="post" action="{% url 'set_today' slug %}">{% csrf_token %}
+      <input type="hidden" name="state" value="{{ cfg.state }}">
+      {% if cfg.note %}<input type="hidden" name="note" value="{{ cfg.note }}">{% endif %}
+      <button type="submit" class="btn btn-primary" id="scanbtn">
+        {% if action == 'open' %}{% trans "Tap to mark OPEN today" %}
+        {% elif action == 'pau' %}{% trans "Tap to mark sold out (Pau) today" %}
+        {% elif action == 'regular' %}{% trans "Tap for regular schedule" %}
+        {% else %}{% trans "Tap to mark CLOSED today" %}{% endif %}
+      </button>
+    </form>
+
+    <p style="margin-top:1rem">
+      <a class="btn" href="{% url 'my_stands' %}">{% trans "My stand dashboard" %}</a>
+      <a class="btn" href="{{ stand.get_absolute_url }}">{% trans "View stand page" %}</a>
+    </p>
+  </div>
+  <div id="flash" class="scanflash"></div>
+  {{ stand.name|json_script:"standname" }}
+
+  <script>
+  (function () {
+    var app = document.getElementById('scanapp');
+    if (!app) return;
+    var form = document.getElementById('scanform');
+    var msg = document.getElementById('scanmsg');
+    var head = document.getElementById('scanhead');
+    var flashKind = app.dataset.flash;     // green | red | neutral
+    var soundKind = app.dataset.sound;     // fanfare | taps | none
+    var action = '{{ action }}';
+    var standName = JSON.parse(document.getElementById('standname').textContent);
+    var SUCCESS = {
+      open:    standName + ' {% trans "is OPEN today!" %}',
+      closed:  standName + ' {% trans "is CLOSED today." %}',
+      pau:     standName + ' {% trans "is sold out (Pau) today." %}',
+      regular: standName + ' {% trans "is back on its regular schedule." %}'
+    };
+    var soundReplayed = false;
+
+    // Fire the real mutation (POST) — bots that don't run JS never reach this,
+    // so the GET that the QR points at can never change anything on its own.
+    fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: {'X-Requested-With': 'fetch'},
+      credentials: 'same-origin'
+    }).then(function (r) {
+      if (r.ok) { celebrate(); }
+      else { msg.textContent = '{% trans "Couldn’t update — tap the button below." %}'; }
+    }).catch(function () {
+      msg.textContent = '{% trans "Network problem — tap the button below." %}';
+    });
+
+    function celebrate() {
+      head.textContent = '✓';
+      msg.textContent = SUCCESS[action] || SUCCESS.closed;
+      flashScreen(flashKind);
+      playSound(soundKind);
+      // Audio often can't autoplay on mobile until a gesture; replay on the
+      // owner's first tap anywhere so they still hear it.
+      if (soundKind !== 'none') {
+        window.addEventListener('pointerdown', function once() {
+          window.removeEventListener('pointerdown', once);
+          if (!soundReplayed) { soundReplayed = true; playSound(soundKind); }
+        }, {once: true});
+      }
+    }
+
+    function flashScreen(kind) {
+      var f = document.getElementById('flash');
+      f.className = 'scanflash flash-' + kind;
+      void f.offsetWidth;            // reflow so the animation re-runs
+      f.classList.add('go');
+    }
+
+    function playSound(kind) {
+      if (kind === 'none') return;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      var ctx = new AC();
+      function tone(freq, start, dur, type, vol) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = type || 'triangle';
+        o.frequency.value = freq;
+        o.connect(g); g.connect(ctx.destination);
+        var t = ctx.currentTime + start;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol || 0.3, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.start(t); o.stop(t + dur + 0.05);
+      }
+      // open = bright rising fanfare; closed = opening phrase of "Taps".
+      var seq = (kind === 'fanfare')
+        ? [[392,0,0.12],[523.25,0.12,0.12],[659.25,0.24,0.12],
+           [783.99,0.36,0.18],[1046.5,0.54,0.6,'triangle',0.35]]
+        : [[392,0,0.22],[392,0.24,0.22],[523.25,0.48,0.6],
+           [392,1.15,0.22],[523.25,1.39,0.32],[659.25,1.71,0.8]];
+      function go() { seq.forEach(function (n) { tone(n[0],n[1],n[2],n[3],n[4]); }); }
+      if (ctx.state === 'suspended') { ctx.resume().then(go, go); } else { go(); }
+    }
+  })();
+  </script>
+{% endif %}
+{% endblock %}

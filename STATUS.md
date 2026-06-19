@@ -48,9 +48,12 @@
 > "migration marks seeds verified" — skipped deliberately (already applied +
 > verified live on prod; Matthew prefers fail-forward over retroactive
 > coverage). Conditional items (report-integrity, auto-hide, semantic LLM
-> moderator) remain deferred until abuse appears. NEXT: feedback-gathering
-> (field-trip 13 pins, Reddit /r/bigisland post) — feature work still paused
-> pending real user feedback.
+> moderator) remain deferred until abuse appears.
+> FIELD/FEEDBACK TASKS CLOSED OUT 2026-06-18: Reddit /r/bigisland post done →
+> gathered good feedback, reported issues already resolved. Map pins down to
+> just 3 stands without pins/good location data (from 13); remaining ones
+> resolve naturally via the claim flow, not a tracked field trip. The
+> feedback-gathering phase that paused feature work is COMPLETE.
 >
 > SESSION CHECKPOINT 2026-06-13: (1) mobile list thumbnail VERIFIED across
 > Firefox + iPhone/Safari + Chrome-on-Android → that workstream DONE.
@@ -72,9 +75,9 @@
 > Already capturing real hits (incl. a /wp-admin/install.php WP-scanner
 > bot — expected noise). NEXT: Matthew is PAUSING feature work to go
 > solicit real user feedback before building more; i18n now gated on BOTH
-> the usage data AND that feedback. Field tasks (13 pins, Reddit post)
-> still wait for Matthew (no stand visits before Sun 2026-06-14); A1 retry
-> next Saturday.
+> the usage data AND that feedback. [UPDATE 2026-06-18: field tasks now CLOSED
+> — Reddit done + good feedback + issues resolved; pins down to 3 of 13.]
+> A1 retry continues weekly Saturday.
 
 ## Where things stand: LAUNCHED 🌺
 
@@ -185,8 +188,10 @@ pull to include media (currently DB snapshots only).
    unstyled interstitial), signed-in = "Aloha, {first_name}" + Sign out
    POST form. 3 new tests (26/26). Profile page still wanted eventually
    (allauth default account pages remain unstyled bare-HTML — skin when
-   building the owner dashboard). Minor nit: allauth's flash message says
-   "signed in as matthew" (username, lowercase) — cosmetic, fix whenever.
+   building the owner dashboard). Allauth flash "signed in as matthew"
+   (lowercase username) — RESOLVED (fixed + deployed + verified 2026-06-13 via
+   ACCOUNT_USER_DISPLAY → first_name; admin username leaks also fixed via a
+   global User.__str__ patch in stands/apps.py).
    Setup details: GCP
    project `hilobakestands` (org giampapa.com; the old "My First Project" =
    mystical-banner-274601 was left untouched). Auth Platform configured: app
@@ -491,11 +496,17 @@ pull to include media (currently DB snapshots only).
    /map page: same dot/center rules, in-view list sorted + distance
    badges. CSS in base.html (#near-me.active green, .badge.distance).
 
-8e. **13 missing pins — PLAN (2026-06-12):** Matthew will hand-place them
-   after on-the-ground checks, combined with the QR claim-flyer delivery
-   round — he'll capture actual GPS coords on site. Don't nag about pins
-   until that trip happens; coords entry via the admin drag-pin widget
-   (or paste lat/lng).
+8e. **QR-flyer field trip — CLOSED OUT 2026-06-18.** First round done: it
+   surfaced one stand that NO LONGER EXISTS (delisted/removed). Other parts of
+   town still uncovered, but Matthew is closing this as an active task because
+   socials are known for everyone else → those are easy to verify at
+   REGISTRATION/claim time (no on-site visit needed). So remaining pins/visits
+   resolve naturally through the claim flow, not a tracked field-trip task.
+   (Original plan: hand-place the 13 missing pins on-site via the admin
+   drag-pin widget during the flyer delivery round.)
+   UPDATE 2026-06-18: down to just 3 stands without pins/good location data
+   (from 13). Fully closed as a field task — the last 3 resolve via the claim
+   flow.
 
 8f. **PHOTOS SLICE LIVE + Vision moderation VERIFIED on prod 2026-06-12.**
    Owner photo gallery (/my/<slug>/photos/, max 6 + 1 list thumbnail),
@@ -598,7 +609,10 @@ pull to include media (currently DB snapshots only).
    version worth building is an automated periodic pull of each stand's
    last 6 IG photos so owners do nothing — revisit ONLY if owner-upload
    adoption is weak. Public captions now also live (detail.html).
-10. Reddit /r/bigisland post asking for missing stands (Matthew's plan).
+10. **Reddit /r/bigisland post — DONE + CLOSED OUT 2026-06-18.** Posted; strong
+   result: lots of POSITIVE feedback, several STAND OWNERS CLAIMED their stands,
+   AND it surfaced the desktop map-toggle bug (since fixed 2026-06-18). Served
+   its purpose (discovery + inbound links + real claims) — closing as a task.
 11. i18n: strings wrapped, Japanese translation deferred — GATED on real
    demand signal from item 13 before investing in translation.
 13. **Basic usage stats + native-language signal — SHIPPED + LIVE on prod
@@ -631,6 +645,49 @@ pull to include media (currently DB snapshots only).
 
 ## v1.2 backlog (capture only — not building yet)
 
+- **BUG — FIXED + VERIFIED ON PROD 2026-06-18 (user feedback 2026-06-14):** the
+  map-view toggle "didn't work" in the wider desktop side-by-side (list + map)
+  layout. ROOT CAUSE was CSS specificity, not JS: list.html tried to hide the
+  toggle in split view with `.toggle-view { display: none }` (specificity
+  0,1,0), but base.html line 104 `a.btn { ...; display: inline-block }` (0,1,1)
+  is more specific and always won — so the toggle stayed VISIBLE at desktop
+  width. Clicking "Map view" navigated to /map/, which (≥1100px) immediately
+  `location.replace()`s back to /, landing on the same split page → looked like
+  the toggle did nothing. FIX: bumped the hide rule to `a.btn.toggle-view {
+  display: none }` (0,2,0, beats a.btn). Also (Matthew's request) moved the
+  view-toggle out from under the Filter button and into the on/off pill group
+  below the `<hr class="filter-sep">`, next to Near me / Unverified — it's a
+  pill-style .btn so it belongs there; row now reads List/Map view · Near me ·
+  Unverified. Template-only change, no migration. Verified on prod: toggle gone
+  in desktop split view, appears in the pill row at narrow widths, toggling
+  works on mobile. GOTCHA hit during deploy: local .venv was stale (predated
+  whitenoise/gunicorn being added to requirements.txt) → `manage.py test` threw
+  127 ModuleNotFoundError: whitenoise errors at middleware-load (all the tests
+  that issue an HTTP request); fix was `pip install -r requirements.txt` to
+  re-sync the venv. 157 tests pass.
+
+- **Better photo management — DONE + VERIFIED ON PROD 2026-06-18.** Owners can
+  now (a) edit a photo's caption/alt AFTER upload and (b) reorder photos. NO
+  migration needed — Photo already had `sort_order` (PositiveSmallIntegerField,
+  Meta.ordering=['sort_order','id'], used by both public detail + dashboard).
+  Reorder UX = UP/DOWN BUTTONS, not drag (Matthew's call: better for
+  accessibility + his hand injury / voice-clipboard workflow; no JS). IMPL: new
+  endpoints edit_photo_caption (POST .../photos/<pk>/caption/) and move_photo
+  (POST .../photos/<pk>/move/ with direction=up|down). move_photo swaps with the
+  neighbour then RENUMBERS all the stand's photos sequentially (self-heals
+  legacy rows sharing sort_order=0). MODERATION (Matthew's requirement): all
+  caption text — both new uploads AND edits — now routes through new
+  forms.PhotoCaptionForm whose clean_caption strips, caps [:200], and calls the
+  SHARED `_reject_if_blocked` (same denylist/threat layer as stand
+  name/description/address; field has NO max_length so the bypassable-HTML-
+  maxlength server-cap test still holds). Closed a prior gap: the upload path
+  previously stored captions UNMODERATED. Designed so future TextModerator
+  layers auto-apply to captions. photos.html: per-photo inline prefilled caption
+  edit form + up/down buttons omitted at the ends via forloop.first/last. 169
+  tests (9 new: caption save/clear/truncate/blocked-on-edit+upload/non-owner
+  404; reorder up/down/no-op-at-ends/renumber-heals-zeros/non-owner 404).
+  Verified functional on prod by Matthew.
+
 - **Reviews / ratings** — already slated for v1.2 (SPEC-1.1 §9); flows through
   the §5a `TextModerator` pono/kind/constructive pipeline when built.
 - **Multi-stand / shared management (Matthew, 2026-06-14).** Two halves:
@@ -645,6 +702,193 @@ pull to include media (currently DB snapshots only).
     Momona host guest vendors). The single `owner` FK can't model multiple
     managers per stand → needs a managers M2M or a through-model with roles
     (owner vs manager). Likely shares per-user identity plumbing with reviews.
+- **PWA / installable app (Matthew, 2026-06-14).** Make the site installable
+  ("Add to Home Screen") via web manifest + service worker + icons (reuse the
+  hibiscus). ~Hours, $0, no app stores/dev accounts, iOS + Android, self-
+  contained. Cheapest "have an app" win. Beyond it (only if asked): Android
+  Play via TWA/Bubblewrap ($25 one-time); iOS App Store is hard (thin webview
+  hits Apple Guideline 4.2 "repackaged website" rejection → needs Capacitor +
+  native bits + $99/yr, which also covers Apple Sign-In). GOTCHA: Google blocks
+  OAuth in embedded webviews → breaks Google login in a naive wrapper; PWA/TWA
+  avoid it, Capacitor must route sign-in through the system browser.
+- **Threads social + social-platform icons — DONE + DEPLOYED 2026-06-18
+  (Matthew, 2026-06-14).** (a) Threads field: `Stand.threads` CharField(100)
+  after tiktok (migration 0009, additive AddField); `clean_threads` in
+  SanitizedStandFieldsMixin reuses `_clean_handle` with domains
+  threads.com/threads.net + IG pattern [A-Za-z0-9._]{1,30} (Threads = the IG
+  username). Added to BOTH StandSubmitForm + StandBasicInfoForm fields (auto-
+  renders via each template's `{% for field in form %}` loop), labels, help.
+  Admin auto-includes it (StandAdmin has no restricted `fields` list).
+  detail.html renders a Threads pill: https://www.threads.com/@<handle> (.com
+  is canonical now — verified via search; .net redirects). (b) Brand-colored
+  icons: inline Simple Icons SVGs (CC0/public-domain, no CDN/icon-font) on each
+  social pill — IG #FF0069, FB #0866FF, TikTok/Threads #000000 — fetched from
+  the `simple-icons` npm package (web_fetch won't return raw SVG asset bodies;
+  npm install in sandbox + node to read .path/.hex is the way). New `.sicon`
+  CSS in base.html (1em, vertical-align). Website/phone left text-only (not
+  social brands). 173 tests (4 new: threads normalize + hostile-reject + detail
+  render + no-pill-when-unset). IMPORTER: NO Threads column in listings.xlsx
+  yet → not wired; if a `Threads` column is ever added, route it through
+  clean_threads (same lesson as the FB importer fix). REUSE pattern confirmed:
+  a new IG-style social = field + _clean_handle(domains,pattern) + form fields +
+  detail pill + Simple-Icons glyph.
+- **SEO / discoverability / link-trust cluster — DONE + DEPLOYED + spot-checked
+  on prod 2026-06-18 (Matthew, 2026-06-14).** All parts shipped. (a) /robots.txt
+  + /.well-known/security.txt = plain function views in views.py
+  (robots_txt/security_txt) wired in config/urls.py; robots allows crawl,
+  Disallows /admin//accounts//my//claim/, Sitemap: line built from
+  settings.SITE_BASE_URL; security.txt Contact mailto:matt@, Expires computed
+  now+365d (never goes stale), Preferred-Languages en. NOTE: Matthew
+  deliberately did NOT add AI-bot opt-out (Google-Extended/GPTBot/ClaudeBot/etc)
+  — wants AI discoverability (Google-Extended is AI-only, doesn't touch search).
+  (b) /sitemap.xml via django.contrib.sitemaps (added to INSTALLED_APPS):
+  stands/sitemaps.py StandSitemap + StaticViewSitemap (protocol https,
+  lastmod=updated_at). SCOPE CHANGE from original plan — Matthew's call: INCLUDE
+  UNVERIFIED stands (filter = status=published + auto_hidden=False only, NOT
+  verification=verified), since existing controls + low volume + email-notif
+  review make it safe and it aids discovery. GOTCHA solved: sitemap framework
+  builds URLs from the django.contrib.sites Site.domain which was still the
+  default 'example.com' → migration 0010 sets it from SITE_BASE_URL host
+  (idempotent update_or_create; also benefits allauth). Google Search Console +
+  Bing Webmaster sitemap SUBMISSION is still a MANUAL post-deploy step (not
+  done yet — offer to drive via Chrome). (c) Link trust: OG + Twitter Card +
+  rel=canonical + meta description in base.html, driven by per-page context vars
+  (meta_description reused for <meta desc> AND og:description = DRY; Twitter
+  falls back to og: tags so only twitter:card declared). canonical/og:url =
+  clean {scheme}://{host}{path} (no query). stand_detail view passes
+  meta_description (stand.description truncated 158, else generated line),
+  og_title, og_type=place, og_image=first approved photo abs URL. Branded
+  1200x630 og-image.png generated via PIL (sand bg, hibiscus, green title +
+  coral .com, tagline) at stands/static/stands/og-image.png = default og:image.
+  Facebook Sharing Debugger RE-SCRAPE DONE 2026-06-18 (new square graphic live). (d) Bing
+  items folded in: meta description (done above) + exactly ONE <h1> per page —
+  sr-only h1 on list.html + map.html (don't disturb layout; new .sr-only CSS in
+  base.html), h2→h1 on submit.html AND submit_signin.html (the crawler-facing
+  anon variant — easy to miss) + claim_your_stand.html; detail already had one.
+  178 tests (5 new SeoTests: robots/security content, sitemap includes-unverified
+  + excludes draft/hidden, detail meta+canonical, one-h1-per-page). REMAINING
+  Bing items: Cloudflare email-obfuscation toggle — DONE 2026-06-18: turned OFF
+  via Security → Settings → Email Address Obfuscation (the old Scrape Shield
+  toggle; /scrape-shield path now 404s, it moved under Security → Settings, tag
+  "Client side abuse"). mailto:matt@ links now render clean for crawlers (kills
+  the /cdn-cgi/l/email-protection rewrite Bing flagged). Done via Claude-in-
+  Chrome on Matthew's logged-in dash. SITEMAP SUBMITTED + ACCEPTED 2026-06-18: Google
+  Search Console fetch SUCCESS (showed "Couldn't fetch" at submit then flipped
+  to success on its own re-crawl — GSC's normal transient behavior, sitemap was
+  serving 200 application/xml the whole time); Bing Webmaster accepted it, found
+  27 URLs. FB SHARING DEBUGGER — CLOSED OUT 2026-06-18: re-scrape tested, new
+  OG graphic (1200x1200 square) now applied/showing in FB's preview card —
+  nothing left pending here. OG HEAD BUG
+  FOUND + FIXED + VERIFIED ON FB 2026-06-18: the SEO deploy's base.html had a
+  MULTI-LINE `{# ... #}` comment in <head> — Django's `{# #}` is SINGLE-LINE
+  ONLY, so the multi-line one rendered as LITERAL TEXT. Stray text in <head>
+  makes the HTML parser close </head> early → all following og: tags landed in
+  <body>, where Facebook IGNORES them. Symptom: visible comment text atop every
+  page + FB card had no image and fell back to <title> for og:title. Tricky to
+  spot because a browser DOM query still finds the (reparented) tags. Stand
+  pages LOOKED fine only because FB inferred the big body <img> photo; the
+  homepage has no large body image so it came up blank. FIX: use
+  `{% comment %}...{% endcomment %}` (multi-line safe). Also added explicit
+  og:image:width/height/type/secure_url/alt on the default image. Verified via
+  Claude-in-Chrome on Matthew's browser: FB re-scrape now parses og:image +
+  full og:title, og:image warning gone (only the optional fb:app_id notice
+  remains — harmless). NO Cloudflare purge needed (was our code, not cache).
+  REGRESSION TEST added (SeoTests.test_head_clean_and_og_inside_head: comment
+  text absent + og: tags before </head>). 180 tests. LESSON: never use
+  multi-line `{# #}`; use `{% comment %}`.
+- **URL-triggered status override / scan-to-open — BUILT + tested locally
+  2026-06-18, NOT yet deployed (Matthew, 2026-06-14 brainstorm; built per the
+  refined plan below).** Owner gets per-stand Open/Closed QR codes on /my/;
+  scanning one lands on a GET page whose JS POSTs to set_today, then flashes
+  the screen (green=open / red=closed) + plays audio (fanfare=open / "Taps"=
+  closed) and shows confirmation. IMPL: new view scan_status(slug, action) +
+  url my/<slug>/scan/<action>/ (name='scan_status'); SCAN_ACTIONS map supports
+  open/closed/pau/regular (only open+closed get QR codes today, rest are
+  future-proofing). GET only RENDERS — never mutates (the safety property);
+  the page's fetch() POST to the existing set_today is the only mutation, so
+  scanners/prefetchers/link-previewers that don't run JS can't flip status.
+  Anonymous → Google sign-in w/ next= back (no 404, so slugs aren't leaked to
+  logged-out scanners); non-owner → 403 + logger.warning (audit) + NO acting
+  form; idempotent SET semantics so re-scans are harmless. QR codes are inline
+  base64 PNG data: URIs via new flyers.qr_data_uri() (reuses the qrcode lib),
+  built in my_stands with request.build_absolute_uri so prod host/scheme are
+  right. Dashboard: <hr class=manage-sep> + QR section under Edit/Photos with
+  the "scan from your phone… print copies… only work signed in" copy. Audio =
+  Web Audio API oscillators (no asset files) — open is a rising fanfare, closed
+  is the opening phrase of "Taps". CAVEAT: mobile browsers block autoplay until
+  a gesture, so the sound may not fire until the owner's first tap — the page
+  arms a one-shot pointerdown listener to replay it; the green/red flash always
+  works. ALSO: /stand/<slug> now shows a tip to a signed-in owner with NO posted
+  weekly hours — explains the 3 ways to set status (edit hours / manual toggle /
+  QR codes) + links to /my/. 190 tests (10 new: ScanStatusTests GET-no-mutate,
+  owner form present, mutation-via-set_today, anon-signin-no-mutate, non-owner-
+  403-no-form, unknown-action-404, dashboard-shows-2-QRs; OwnerHoursTipTests
+  shown/hidden-with-hours/hidden-from-non-owner). ORIGINAL PLAN kept below for
+  reference:
+  Set today's status by hitting a URL instead of a dashboard
+  pill — /my/<slug>/override/open|closed|pau (+ /regular to clear) → enables
+  per-stand QR stickers (RFID later) in the cashbox for one-scan open/close.
+  Builds on the existing set_today/DayOverride today-toggle; reuse flyers.py QR
+  machinery. Auth: logged-in owner → act; logged-out → login (next= back) then
+  act; logged-in non-owner → error AND LOG (fishy-behavior audit, vs set_today's
+  plain 404). APPROACH (refined): the GET just RENDERS a thin landing page (no
+  mutation on the GET); JS on the page fires the real change as a CSRF POST to
+  set_today, then confirms. Sidesteps the GET-mutates anti-pattern — prefetch/
+  preview-bots/URL-scanners fetch the GET but don't run JS, so nothing changes;
+  only a real browser mutates (POST). Use idempotent SET semantics anyway
+  (open/closed/pau absolute, not toggle). Logged-in non-owner → error + log,
+  never renders the acting JS. Thin GET view + auto-submitting template +
+  existing set_today POST; no new data model.
+- **Facebook social link validation/normalization — DONE + VERIFIED ON PROD
+  2026-06-18 (Matthew, 2026-06-14).** FB was messier than IG/TikTok: old
+  forms.py _clean_handle did `.split('/')[0].split('?')[0]` → kept only the
+  first path segment, so profile.php?id=NNN stored "profile.php" and
+  pages/Name/ID stored "pages" → dead links; importer's own clean_handle only
+  stripped @ (didn't even drop the domain). DECISION (Matthew's call): store FB
+  as a FULL CANONICAL URL (https://www.facebook.com/...), NOT a bare handle
+  like the other socials. IMPL: new module-level `normalize_facebook(value)` in
+  forms.py parses vanity / full-or-partial URL (±scheme/www/m./fb.com) /
+  profile.php?id=NNN / pages/Name/NNN and REBUILDS the URL from validated
+  regex groups (nothing raw reaches the rendered href — security-safe);
+  clean_facebook now calls it (so owner-edit + public-submit both covered).
+  Root-cause fix: import_listings.py uses a `fb_url()` wrapper around the SAME
+  normalizer (bad sheet cells import blank, don't abort the run). detail.html
+  renders `href="{{ stand.facebook }}"` directly (was facebook.com/{{value}}).
+  Model: facebook CharField widened 100→255 (full URLs are longer). Migration
+  0008 = AlterField + RunPython backfill converting existing bare handles →
+  full URLs (idempotent: skips values already starting with http; leaves
+  unparseable legacy values untouched for manual admin review). 160 tests
+  (added normalize-shapes/idempotency/hostile-reject + updated 2 old
+  bare-handle assertions). Verified on prod (Sugar Wave Bakery FB link intact
+  through deploy). NOTE for Threads (v1.2 backlog): reuse this same
+  build-from-validated-parts pattern. Other socials (IG/TikTok) unchanged —
+  still bare handles.
+- **Make the claim-to-edit path more obvious (Matthew, 2026-06-14).** Real
+  signal: an owner found errors and RE-SUBMITTED their stand (dup) instead of
+  claiming it, then reached out on IG; Matthew resolved by sending both claim
+  links and asking which to keep. Happened DESPITE the new claim_your_stand
+  page + breadcrumb + 25m dup-warning → those aren't discoverable/strong
+  enough. Consider: (1) submit-time dup guard says "Is this your stand? Claim
+  it to fix details" + match on NAME similarity too (not just 25m geo, which a
+  re-typed address slips); (2) more prominent breadcrumb + a claim CTA tied to
+  the "Something wrong with this listing?" report link; (3) claim_your_stand
+  page lead with "claim to EDIT/fix your info." Manual fix until auto-dedup:
+  send both claim links, keep one, delist the other.
+- **Bing Webmaster Tools findings (Matthew, 2026-06-14)** — overlaps SEO
+  cluster; verified vs templates. (a) Missing image alt — DONE + VERIFIED ON
+  PROD 2026-06-18: detail.html + owner photos.html now render
+  alt="{caption else 'Photo from {{ stand.name }}'}" (blocktrans-wrapped for
+  i18n). Matthew's call on the fallback phrasing: "Photo from <stand>" (not
+  "<stand> — photo") to acknowledge it's user-submitted content. Non-empty,
+  honest, translatable. The list-thumb empty alt (has aria-label on its link)
+  and header hibiscus alt="" (decorative) left as-is — already correct.
+  (b) No meta description (same as SEO item).
+  (c) No H1 in body (BingBot cares): home/list, /map, submit.html,
+  claim_your_stand.html use h2 and lack an h1 (Bing crawled home); add exactly
+  one h1/page. (d) /cdn-cgi/l/email-protection errored link = Cloudflare Email
+  Address Obfuscation (Scrape Shield) rewriting the mailto:matt@ links — NOT a
+  code bug; a Cloudflare dashboard toggle. TURNED OFF 2026-06-18 (Security →
+  Settings → Email Address Obfuscation) → clean mailto, Bing flag resolved.
 
 ## Person/context notes
 

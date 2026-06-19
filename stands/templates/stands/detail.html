@@ -47,6 +47,14 @@
     {% endif %}
   {% endwith %}
 
+  {% if user.is_authenticated and stand.owner_id == user.id and not stand.weekly_hours.all %}
+    <div class="ownertip" style="margin:0.5rem 0 0; padding:0.8rem 1rem; background:#fdf6ec; border:1px solid #e8e0d2; border-radius:12px">
+      <p style="margin:0 0 0.3rem"><strong>{% trans "No regular hours yet?" %}</strong> {% trans "You can let folks know when you're open in three ways:" %}</p>
+      <p class="muted" style="margin:0">{% blocktrans %}Post a weekly schedule by editing your hours, flip an open/closed-today switch by hand, or use the open &amp; closed QR codes from your phone as part of setup and breakdown each day.{% endblocktrans %}
+        <a href="{% url 'my_stands' %}">{% trans "Set this up on your dashboard." %}</a></p>
+    </div>
+  {% endif %}
+
   {% if stand.street_address %}<h3>{% trans "Where" %}</h3><p>{{ stand.street_address }}</p>{% endif %}
   {% if stand.latitude %}
     <p>

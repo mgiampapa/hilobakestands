@@ -46,6 +46,22 @@
       <a class="btn editlink" href="{% url 'edit_pin' row.stand.slug %}">📌 {% if row.stand.latitude is not None %}{% trans "Move map pin" %}{% else %}{% trans "Set map pin" %}{% endif %}</a>
       <a class="btn editlink" href="{% url 'stand_photos' row.stand.slug %}">📷 {% trans "Photos" %}</a>
     </div>
+
+    <hr class="manage-sep">
+    <div class="qr-codes">
+      <h3>🤳 {% trans "Open / close from your phone" %}</h3>
+      <p class="muted">{% trans "Scan these codes from your phone to quickly open and close your stand. You can even print copies and leave them in your stand — handy for setup and breakdown each day. They only work when you're signed in." %}</p>
+      <div class="qr-row">
+        <figure class="qr-tile">
+          <img src="{{ row.qr_open }}" alt="{% trans 'QR code to mark open today' %}" width="150" height="150">
+          <figcaption>{% trans "We're open today" %}</figcaption>
+        </figure>
+        <figure class="qr-tile">
+          <img src="{{ row.qr_closed }}" alt="{% trans 'QR code to mark closed today' %}" width="150" height="150">
+          <figcaption>{% trans "Closed today" %}</figcaption>
+        </figure>
+      </div>
+    </div>
   </div>
 {% empty %}
   <div class="card">

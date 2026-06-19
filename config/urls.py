@@ -22,6 +22,8 @@ urlpatterns = [
     path('claim/<str:token>/', views.stand_claim, name='stand_claim'),
     path('my/', views.my_stands, name='my_stands'),
     path('my/<slug:slug>/today/', views.set_today, name='set_today'),
+    path('my/<slug:slug>/scan/<str:action>/', views.scan_status,
+         name='scan_status'),
     path('my/<slug:slug>/edit/', views.edit_stand, name='edit_stand'),
     path('my/<slug:slug>/hours/', views.edit_hours, name='edit_hours'),
     path('my/<slug:slug>/pin/', views.edit_pin, name='edit_pin'),

@@ -356,9 +356,20 @@ def my_stands(request):
               .prefetch_related('weekly_hours', 'day_overrides')
               .order_by('name'))
     today = timezone.localdate()
-    rows = [{'stand': s,
-             'override': s.day_overrides.filter(date=today).first(),
-             'open_now': s.is_open_now()} for s in stands]
+    from .flyers import qr_data_uri
+    rows = []
+    for s in stands:
+        def scan_qr(action):
+            url = request.build_absolute_uri(
+                reverse('scan_status', args=[s.slug, action]))
+            return qr_data_uri(url)
+        rows.append({
+            'stand': s,
+            'override': s.day_overrides.filter(date=today).first(),
+            'open_now': s.is_open_now(),
+            'qr_open': scan_qr('open'),
+            'qr_closed': scan_qr('closed'),
+        })
     return render(request, 'stands/my_stands.html', {'rows': rows})
 
 
@@ -388,6 +399,52 @@ def set_today(request, slug):
                 % {'name': stand.name,
                    'state': _('open') if state == 'open' else _('closed')})
     return redirect('my_stands')
+
+
+# Scan-to-open/close: each owner gets per-stand QR codes (one per action). The
+# QR points here. CRITICAL: this GET only RENDERS a landing page — it never
+# mutates. The page's JS POSTs to set_today (the real, CSRF-protected,
+# owner-checked mutation). So URL-scanners, link previewers, and prefetchers —
+# which fetch the GET but don't run JS — can't flip a stand's status; only a
+# real browser does. set semantics are idempotent (re-scanning "open" just
+# re-sets open), so an accidental re-scan is harmless.
+SCAN_ACTIONS = {
+    'open':   {'state': 'open',   'note': '',
+               'flash': 'green', 'sound': 'fanfare'},
+    'closed': {'state': 'closed', 'note': '',
+               'flash': 'red',   'sound': 'taps'},
+    # pau/regular aren't given QR codes today, but the endpoint supports them
+    # so the same scan machinery can grow later without a new URL.
+    'pau':    {'state': 'closed', 'note': _('Pau — sold out'),
+               'flash': 'red',   'sound': 'taps'},
+    'regular': {'state': 'clear', 'note': '',
+                'flash': 'neutral', 'sound': 'none'},
+}
+
+
+def scan_status(request, slug, action):
+    from django.http import Http404
+    cfg = SCAN_ACTIONS.get(action)
+    if cfg is None:
+        raise Http404('Unknown scan action')
+    # Anonymous: don't 404 (we don't want to leak which slugs exist to a
+    # logged-out scanner), just offer sign-in that returns right back here.
+    if not request.user.is_authenticated:
+        return render(request, 'stands/scan_status.html',
+                      {'slug': slug, 'action': action, 'cfg': cfg,
+                       'state': 'anon'})
+    stand = get_object_or_404(Stand, slug=slug)
+    if stand.owner_id != request.user.id:
+        # Fishy: a signed-in user scanned someone else's code. Log it (audit)
+        # and render an error page that carries NO acting JS.
+        logger.warning('scan_status: %s tried to set %s on stand they do not '
+                       'own (%s)', request.user.pk, action, slug)
+        return render(request, 'stands/scan_status.html',
+                      {'slug': slug, 'action': action, 'cfg': cfg,
+                       'stand': stand, 'state': 'forbidden'}, status=403)
+    return render(request, 'stands/scan_status.html',
+                  {'slug': slug, 'action': action, 'cfg': cfg,
+                   'stand': stand, 'state': 'owner'})
 
 
 def edit_stand(request, slug):
