@@ -3,44 +3,22 @@
 Usage:
     python manage.py geocode [--all] [--dry-run]
 
-- Only touches stands whose coords_source is blank or 'geocoded' — a pin
-  placed by an admin or owner is NEVER overwritten by automation.
-- By default only stands with no coordinates are geocoded; --all re-geocodes
-  previously auto-geocoded stands too (e.g. after fixing an address).
-- Respects the Nominatim usage policy: 1 request/second, descriptive
-  User-Agent, results biased to the Big Island.
-- Road-level matches are REJECTED (Matthew, 2026-06-11): a street centroid on
-  a long rural road is worse than no pin — those stands get a hand-placed pin
-  via the admin map widget instead. Only place-level results (house, building,
-  amenity...) are saved; the result type lands in geocode_precision.
+The lookup rules (Big-Island bias/bound, road-level rejection, query shaping)
+live in stands/geocoding.py and are SHARED with the admin "Geocode now" button,
+so the two can never drift apart. This command adds the batch-only concerns:
+- only touches stands whose coords_source is blank or 'geocoded' — a pin placed
+  by an admin or owner is NEVER overwritten by automation.
+- by default only stands with no coordinates; --all re-geocodes previously
+  auto-geocoded stands too (e.g. after fixing an address).
+- spaces calls 1.1s apart to respect Nominatim's 1 req/s policy.
 """
-import json
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from stands import geocoding
 from stands.models import Stand
-
-NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
-USER_AGENT = 'HiloBakeStands.com geocoder (matt@hilobakestands.com)'
-# Big Island bounding box (lng1,lat1,lng2,lat2) to bias + bound results.
-VIEWBOX = '-156.1,20.3,-154.7,18.8'
-
-
-def nominatim(query):
-    params = urllib.parse.urlencode({
-        'q': query, 'format': 'jsonv2', 'limit': 1, 'countrycodes': 'us',
-        'viewbox': VIEWBOX, 'bounded': 1,
-    })
-    req = urllib.request.Request(f'{NOMINATIM_URL}?{params}',
-                                 headers={'User-Agent': USER_AGENT})
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        results = json.load(resp)
-    return results[0] if results else None
 
 
 class Command(BaseCommand):
@@ -53,16 +31,6 @@ class Command(BaseCommand):
         parser.add_argument('--dry-run', action='store_true',
                             help='Show what would happen without saving.')
 
-    def queries_for(self, stand):
-        """Candidate queries. No street-only fallback — that can only produce
-        road-level matches, which we reject anyway."""
-        addr = stand.street_address.strip().rstrip('.,')
-        if not addr:
-            return []
-        if 'hi' not in addr.lower() and 'hawaii' not in addr.lower():
-            return [f'{addr}, Hawaii, USA']
-        return [f'{addr}, USA']
-
     def handle(self, *args, **opts):
         stands = Stand.objects.exclude(
             coords_source__in=[Stand.CoordsSource.OWNER_PIN,
@@ -72,36 +40,36 @@ class Command(BaseCommand):
 
         done = failed = 0
         for stand in stands:
-            hit = query = None
-            for query in self.queries_for(stand):
-                try:
-                    hit = nominatim(query)
-                except (urllib.error.URLError, TimeoutError, ValueError) as e:
-                    self.stderr.write(f'  network error for {stand.name}: {e}')
-                time.sleep(1.1)  # Nominatim policy: max 1 req/s
-                if hit:
-                    break
-            if not hit:
+            result = geocoding.geocode_address(stand.street_address)
+            time.sleep(1.1)  # Nominatim policy: max 1 req/s
+
+            status = result['status']
+            if status == 'error':
+                failed += 1
+                self.stderr.write(
+                    f'  network error for {stand.name}: {result["error"]}')
+                continue
+            if status == 'no_match':
                 failed += 1
                 self.stdout.write(self.style.WARNING(
                     f'NO MATCH  {stand.name!r}  addr={stand.street_address!r}'))
                 continue
-
-            precision = hit.get('addresstype') or hit.get('type', '')
-            if hit.get('class') == 'highway' or precision == 'road':
+            if status == 'road_only':
                 failed += 1
                 self.stdout.write(self.style.WARNING(
                     f'ROAD ONLY (skipped)  {stand.name!r}  '
                     f'addr={stand.street_address!r} — place the pin by hand'))
                 continue
+
+            # status == 'ok'
             self.stdout.write(
-                f'{precision:<12} {stand.name}: {hit["lat"]},{hit["lon"]}'
-                f'  (query: {query})')
+                f'{result["precision"]:<12} {stand.name}: '
+                f'{result["lat"]},{result["lon"]}')
             if not opts['dry_run']:
-                stand.latitude = round(float(hit['lat']), 6)
-                stand.longitude = round(float(hit['lon']), 6)
+                stand.latitude = result['lat']
+                stand.longitude = result['lon']
                 stand.coords_source = Stand.CoordsSource.GEOCODED
-                stand.geocode_precision = precision[:30]
+                stand.geocode_precision = result['precision'][:30]
                 stand.geocoded_at = timezone.now()
                 stand.save(update_fields=[
                     'latitude', 'longitude', 'coords_source',

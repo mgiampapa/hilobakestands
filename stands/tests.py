@@ -551,7 +551,7 @@ class GeocodeCommandTests(TestCase):
         from django.core.management import call_command
         s = make_stand(latitude=None, longitude=None,
                        street_address='123 Test St')
-        with mock.patch('stands.management.commands.geocode.nominatim',
+        with mock.patch('stands.geocoding.nominatim',
                         return_value=self._fake_hit()), \
              mock.patch('stands.management.commands.geocode.time.sleep'):
             call_command('geocode')
@@ -565,7 +565,7 @@ class GeocodeCommandTests(TestCase):
         s = make_stand(street_address='123 Test St',
                        coords_source=Stand.CoordsSource.ADMIN)
         orig = s.latitude
-        with mock.patch('stands.management.commands.geocode.nominatim',
+        with mock.patch('stands.geocoding.nominatim',
                         return_value=self._fake_hit()) as fake, \
              mock.patch('stands.management.commands.geocode.time.sleep'):
             call_command('geocode', '--all')
@@ -577,7 +577,7 @@ class GeocodeCommandTests(TestCase):
         from django.core.management import call_command
         s = make_stand(latitude=None, longitude=None,
                        street_address='Hoaloha st')
-        with mock.patch('stands.management.commands.geocode.nominatim',
+        with mock.patch('stands.geocoding.nominatim',
                         return_value=self._fake_hit('road', 'highway')), \
              mock.patch('stands.management.commands.geocode.time.sleep'):
             call_command('geocode')
@@ -2150,3 +2150,56 @@ class AdminClaimMessageTests(TestCase):
         stand.save(update_fields=['claim_token'])
         r = self.client.get(self._change_url(stand))
         self.assertNotContains(r, 'Copy message')
+
+
+class AdminGeocodeButtonTests(TestCase):
+    """The admin per-stand 'Geocode now' button (shares stands.geocoding rules
+    with the batch command)."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        User.objects.create_superuser('admin', 'a@b.c', 'pw')
+        self.client.login(username='admin', password='pw')
+
+    def _hit(self, addresstype='house', cls='place'):
+        return {'lat': '19.71', 'lon': '-155.08',
+                'addresstype': addresstype, 'class': cls}
+
+    def _geo_url(self, stand):
+        return reverse('admin:stands_stand_geocode', args=[stand.pk])
+
+    def test_button_fills_coords_on_place_match(self):
+        s = make_stand(latitude=None, longitude=None,
+                       street_address='123 Test St', coords_source='')
+        with mock.patch('stands.geocoding.nominatim', return_value=self._hit()):
+            r = self.client.get(self._geo_url(s))
+        self.assertEqual(r.status_code, 302)  # back to change page
+        s.refresh_from_db()
+        self.assertEqual(float(s.latitude), 19.71)
+        self.assertEqual(s.coords_source, Stand.CoordsSource.GEOCODED)
+        self.assertEqual(s.geocode_precision, 'house')
+
+    def test_button_refuses_road_only(self):
+        s = make_stand(latitude=None, longitude=None,
+                       street_address='Hoaloha st', coords_source='')
+        with mock.patch('stands.geocoding.nominatim',
+                        return_value=self._hit('road', 'highway')):
+            self.client.get(self._geo_url(s))
+        s.refresh_from_db()
+        self.assertIsNone(s.latitude)
+        self.assertEqual(s.coords_source, '')
+
+    def test_button_no_address_does_nothing(self):
+        s = make_stand(latitude=None, longitude=None, street_address='',
+                       coords_source='')
+        with mock.patch('stands.geocoding.nominatim') as fake:
+            self.client.get(self._geo_url(s))
+        fake.assert_not_called()
+        s.refresh_from_db()
+        self.assertIsNone(s.latitude)
+
+    def test_change_page_shows_geocode_button(self):
+        s = make_stand(street_address='123 Test St')
+        r = self.client.get(reverse('admin:stands_stand_change', args=[s.pk]))
+        self.assertContains(r, 'Geocode now')

@@ -70,8 +70,9 @@ class StandAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     filter_horizontal = ('categories', 'payment_methods')
     inlines = [WeeklyHoursInline, DayOverrideInline, PhotoInline]
-    readonly_fields = ('claim_link', 'claim_message', 'claimed_at', 'verified_at',
-                       'verified_via', 'submitted_at', 'created_at', 'created_by',
+    readonly_fields = ('claim_link', 'claim_message', 'geocode_button',
+                       'claimed_at', 'verified_at', 'verified_via',
+                       'submitted_at', 'created_at', 'created_by',
                        'updated_at', 'updated_by')
     actions = ['mark_verified', 'publish', 'unpublish',
                'generate_claim_tokens', 'download_claim_flyers']
@@ -151,6 +152,31 @@ class StandAdmin(admin.ModelAdmin):
             "this.textContent='Copied!'\">Copy message</button>",
             tid=tid, text=text)
 
+    @admin.display(description='Geocode from address')
+    def geocode_button(self, obj):
+        """One-click best-guess geocode of the street address (same rules as
+        the batch command — rough road-level matches are refused). Saves a
+        manual Google Maps lookup."""
+        if not obj.pk:
+            return 'Save the stand first, then you can geocode its address.'
+        if not (obj.street_address or '').strip():
+            return 'Add a street address above to enable geocoding.'
+        geo_url = reverse('admin:stands_stand_geocode', args=[obj.pk])
+        if obj.latitude is not None:
+            cur = format_html(
+                'Current pin: {}, {} <span style="color:#666">({})</span><br>',
+                obj.latitude, obj.longitude,
+                obj.get_coords_source_display() or 'unset')
+        else:
+            cur = format_html(
+                '<span style="color:#b45309">No coordinates yet.</span><br>')
+        return format_html(
+            '{}<a class="button" href="{}">📍 Geocode now (best guess)</a> '
+            '<span style="color:#666">Fills lat/long from the address; rough '
+            'road-level matches are refused — place those by hand on the map.'
+            '</span>',
+            cur, geo_url)
+
     def get_urls(self):
         from django.urls import path as url_path
         extra = [
@@ -160,8 +186,58 @@ class StandAdmin(admin.ModelAdmin):
             url_path('<int:pk>/claim-flyer/',
                      self.admin_site.admin_view(self.single_claim_flyer),
                      name='stands_stand_claim_flyer'),
+            url_path('<int:pk>/geocode/',
+                     self.admin_site.admin_view(self.geocode_now),
+                     name='stands_stand_geocode'),
         ]
         return extra + super().get_urls()
+
+    def geocode_now(self, request, pk):
+        """Geocode a single stand's address from its admin change page."""
+        from django.http import HttpResponseRedirect
+        from django.urls import reverse as url_reverse
+        from django.utils import timezone
+        from . import geocoding
+        stand = Stand.objects.get(pk=pk)
+        if not self.has_change_permission(request, stand):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied
+        back = HttpResponseRedirect(
+            url_reverse('admin:stands_stand_change', args=[pk]))
+        addr = (stand.street_address or '').strip()
+        if not addr:
+            self.message_user(request, 'Add a street address first, then '
+                              'geocode.', level='WARNING')
+            return back
+        result = geocoding.geocode_address(addr)
+        status = result['status']
+        if status == 'ok':
+            stand.latitude = result['lat']
+            stand.longitude = result['lon']
+            stand.coords_source = Stand.CoordsSource.GEOCODED
+            stand.geocode_precision = result['precision'][:30]
+            stand.geocoded_at = timezone.now()
+            stand.save(update_fields=['latitude', 'longitude', 'coords_source',
+                                      'geocode_precision', 'geocoded_at',
+                                      'updated_at'])
+            self.message_user(
+                request, f'Geocoded {stand.name} to {result["lat"]}, '
+                f'{result["lon"]} ({result["precision"]}). Check the pin on the '
+                'map and nudge it if needed.')
+        elif status == 'road_only':
+            self.message_user(
+                request, f'Only a rough road-level match for {stand.name} — '
+                'that\'s worse than no pin, so place it by hand on the map.',
+                level='WARNING')
+        elif status == 'no_match':
+            self.message_user(
+                request, f'No match for {stand.name}\'s address — check the '
+                'address or place the pin by hand.', level='WARNING')
+        else:  # error
+            self.message_user(
+                request, f'Geocoding service problem ({result.get("error", "")})'
+                ' — try again in a moment.', level='ERROR')
+        return back
 
     def _flyer_response(self, request, stands, filename):
         """Shared by single + bulk: token up any unowned stand lacking one,
