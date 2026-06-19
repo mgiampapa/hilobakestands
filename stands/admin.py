@@ -12,6 +12,20 @@ NEEDS_REVIEW_BELOW = 70  # validation_score threshold for admin attention
 # Note: users render by EMAIL in the admin via the User.__str__ patch in
 # stands/apps.py (owner, created_by, updated_by, photo uploaded_by, etc.).
 
+# Outreach message Matthew copy/pastes when inviting an owner to claim their
+# stand. {link} is filled with the stand's claim URL. Kept verbatim per his
+# wording; edit here to change the script everywhere.
+CLAIM_MESSAGE_TEMPLATE = (
+    "Aloha, I'm building a free directory of bake stands, in and around Hilo. "
+    "It's not a sales or advertising platform, I'm just trying to help others "
+    "(and myself) find tasty things while supporting local.\n\n"
+    "I'm slowly working my way out from Hilo and have added yours to "
+    "https://hilobakestands.com. If you want to make changes, post photos or "
+    "otherwise edit the listing, you can use this link to claim it with an "
+    "account. {link}\n\n"
+    "Please feel free to reach out if you have any questions. Mahalo."
+)
+
 
 class NeedsReviewFilter(admin.SimpleListFilter):
     title = 'review status'
@@ -56,9 +70,9 @@ class StandAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     filter_horizontal = ('categories', 'payment_methods')
     inlines = [WeeklyHoursInline, DayOverrideInline, PhotoInline]
-    readonly_fields = ('claim_link', 'claimed_at', 'verified_at', 'verified_via',
-                       'submitted_at', 'created_at', 'created_by', 'updated_at',
-                       'updated_by')
+    readonly_fields = ('claim_link', 'claim_message', 'claimed_at', 'verified_at',
+                       'verified_via', 'submitted_at', 'created_at', 'created_by',
+                       'updated_at', 'updated_by')
     actions = ['mark_verified', 'publish', 'unpublish',
                'generate_claim_tokens', 'download_claim_flyers']
 
@@ -114,6 +128,28 @@ class StandAdmin(admin.ModelAdmin):
             '<a class="button" href="{}">Download flyer (PDF)</a> '
             '<a class="button" href="{}">Regenerate</a>',
             url, flyer_url, gen_url)
+
+    @admin.display(description='Outreach message')
+    def claim_message(self, obj):
+        """Pre-filled invite message with the claim link, ready to copy/paste
+        (text box + a one-click Copy button). Matthew sends these by hand."""
+        if obj.owner:
+            return '—'  # already claimed; nothing to send
+        if not obj.pk or not obj.claim_token:
+            return 'Generate a claim link first — the ready-to-send message ' \
+                   'appears here once a link exists.'
+        url = settings.SITE_BASE_URL + obj.claim_url_path
+        text = CLAIM_MESSAGE_TEMPLATE.format(link=url)
+        tid = 'claimmsg-%s' % obj.pk
+        return format_html(
+            '<textarea id="{tid}" readonly rows="9" cols="68" '
+            'style="display:block;font-family:inherit;white-space:pre-wrap" '
+            'onclick="this.select()">{text}</textarea>'
+            '<button type="button" class="button" style="margin-top:6px" '
+            "onclick=\"navigator.clipboard.writeText("
+            "document.getElementById('{tid}').value);"
+            "this.textContent='Copied!'\">Copy message</button>",
+            tid=tid, text=text)
 
     def get_urls(self):
         from django.urls import path as url_path

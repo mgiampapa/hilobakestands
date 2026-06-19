@@ -2117,3 +2117,36 @@ class OwnerHoursTipTests(TestCase):
         self.client.force_login(other)
         r = self.client.get(self.stand.get_absolute_url())
         self.assertNotContains(r, 'No regular hours yet?')
+
+
+class AdminClaimMessageTests(TestCase):
+    """The admin change page offers a ready-to-send outreach message with the
+    claim link filled in (Matthew copies it by hand)."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        User.objects.create_superuser('admin', 'a@b.c', 'pw')
+        self.client.login(username='admin', password='pw')
+
+    def _change_url(self, stand):
+        return reverse('admin:stands_stand_change', args=[stand.pk])
+
+    def test_message_shows_with_claim_link(self):
+        stand = make_stand(name='Sugar Wave', slug='sugar-wave')
+        stand.generate_claim_token()
+        stand.save(update_fields=['claim_token'])
+        r = self.client.get(self._change_url(stand))
+        self.assertContains(r, 'Outreach message')
+        self.assertContains(r, 'Mahalo')
+        self.assertContains(r, stand.claim_token)  # link is embedded
+        self.assertContains(r, 'Copy message')
+
+    def test_no_message_once_claimed(self):
+        from django.contrib.auth import get_user_model
+        owner = get_user_model().objects.create_user(username='baker')
+        stand = make_stand(name='Owned Stand', slug='owned-stand', owner=owner)
+        stand.generate_claim_token()
+        stand.save(update_fields=['claim_token'])
+        r = self.client.get(self._change_url(stand))
+        self.assertNotContains(r, 'Copy message')
