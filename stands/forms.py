@@ -53,6 +53,17 @@ _BLOCKED_TEXT_MSG = _(
     "Sorry — that contains language we can't accept. Please revise it.")
 
 
+def _nfkc(value):
+    """Fold 'fancy' compatibility Unicode to plain characters. Users paste
+    styled text from fancy-text generators — e.g. 𝟓𝟎 𝐀𝐡𝐨𝐧𝐚 𝐏𝐥 (Mathematical
+    Alphanumeric Symbols) → '50 Ahona Pl'. NFKC normalization makes stored text
+    searchable, geocodable, and screen-reader-friendly, AND closes a denylist
+    bypass (a slur in math-bold doesn't fold under the denylist's NFD pass).
+    Apply to every free-text field the user can type into."""
+    import unicodedata
+    return unicodedata.normalize('NFKC', value or '')
+
+
 def _reject_if_blocked(*texts):
     """Raise if any text trips the denylist/threat filter (stands.textmod) —
     the always-on first layer of the TextModerator. Applied to every submitter
@@ -166,7 +177,7 @@ class SanitizedStandFieldsMixin:
         return v
 
     def clean_description(self):
-        v = self.cleaned_data.get('description') or ''
+        v = _nfkc(self.cleaned_data.get('description') or '')
         # Strip control characters (keep newlines and tabs); cap length.
         v = ''.join(ch for ch in v if ch in '\n\r\t' or ord(ch) >= 32)
         v = v[:2000]
@@ -290,7 +301,7 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
         }
 
     def clean_name(self):
-        v = (self.cleaned_data.get('name') or '').strip()
+        v = _nfkc(self.cleaned_data.get('name') or '').strip()
         v = ''.join(ch for ch in v if ch == '\t' or ord(ch) >= 32)  # one line
         if not v:
             raise ValidationError(_('Please enter the stand name.'))
@@ -299,7 +310,7 @@ class StandSubmitForm(SanitizedStandFieldsMixin, forms.ModelForm):
         return v
 
     def clean_street_address(self):
-        v = (self.cleaned_data.get('street_address') or '').strip()
+        v = _nfkc(self.cleaned_data.get('street_address') or '').strip()
         v = ''.join(ch for ch in v if ch == '\t' or ord(ch) >= 32)
         v = v[:200]
         _reject_if_blocked(v)
@@ -320,6 +331,6 @@ class PhotoCaptionForm(forms.Form):
                               widget=forms.TextInput)
 
     def clean_caption(self):
-        v = (self.cleaned_data.get('caption') or '').strip()[:200]
+        v = _nfkc(self.cleaned_data.get('caption') or '').strip()[:200]
         _reject_if_blocked(v)
         return v

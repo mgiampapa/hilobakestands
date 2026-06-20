@@ -23,11 +23,14 @@ _OKINA = dict.fromkeys(map(ord, "ʻʼ‘’'`"), None)
 
 
 def _normalize(s):
-    """Fold Hawaiian diacriticals so spelling variants hit the same denylist
-    entry: strip kahakō (combining macrons, via NFD) and drop ʻokina/apostrophe
-    variants. Plain ASCII (English / Pidgin) passes through unchanged. Applied
-    to BOTH the wordlist and the incoming text."""
-    s = unicodedata.normalize('NFD', s)
+    """Fold spelling/styling variants so they hit the same denylist entry, on
+    BOTH the wordlist and the incoming text. NFKD (compatibility decomposition)
+    both strips Hawaiian kahakō (combining macrons) AND folds 'fancy' Unicode —
+    e.g. math-bold 𝐀𝐡𝐨𝐥𝐞 → 'Ahole' — so a slur run through a fancy-text
+    generator can't slip past. (Forms also NFKC inputs up front; this keeps the
+    matcher self-sufficient for any direct caller.) Then drop combining marks
+    and ʻokina/apostrophe variants. Plain ASCII passes through unchanged."""
+    s = unicodedata.normalize('NFKD', s)
     s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
     return s.translate(_OKINA)
 

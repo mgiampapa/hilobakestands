@@ -2223,3 +2223,44 @@ class DirectionsLinkTests(TestCase):
     def test_no_links_without_coords(self):
         s = make_stand(latitude=None, longitude=None)
         self.assertEqual(s.directions_links(), {})
+
+
+class UnicodeNormalizationTests(TestCase):
+    """User-pasted 'fancy' Unicode (math-bold etc.) must be NFKC-folded to plain
+    text on input, and must not be a denylist bypass."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.user = get_user_model().objects.create_user(username='baker')
+
+    def _submit(self, **over):
+        from stands.forms import StandSubmitForm
+        data = {'name': 'Plain Stand', 'location_type': Stand.LocationType.BAKE_STAND,
+                'description': '', 'street_address': '', 'attendance': 'attended'}
+        data.update(over)
+        return StandSubmitForm(data)
+
+    def test_name_and_address_are_nfkc_folded(self):
+        f = self._submit(name='𝟓𝟎 𝐀𝐡𝐨𝐧𝐚 𝐁𝐚𝐤𝐞𝐬',
+                         street_address='𝟓𝟎 𝐀𝐡𝐨𝐧𝐚 𝐏𝐥. 𝐇𝐢𝐥𝐨, 𝐇𝐈')
+        self.assertTrue(f.is_valid(), f.errors)
+        self.assertEqual(f.cleaned_data['name'], '50 Ahona Bakes')
+        self.assertEqual(f.cleaned_data['street_address'], '50 Ahona Pl. Hilo, HI')
+
+    def test_description_is_nfkc_folded(self):
+        f = self._submit(description='𝐅𝐫𝐞𝐬𝐡 𝐦𝐚𝐥𝐚𝐬𝐚𝐝𝐚𝐬')
+        self.assertTrue(f.is_valid(), f.errors)
+        self.assertEqual(f.cleaned_data['description'], 'Fresh malasadas')
+
+    def test_fancy_unicode_does_not_bypass_denylist(self):
+        # 'ahole' is a real Hawaiian denylist term; math-bold must still trip it.
+        from stands.textmod import text_blocked
+        self.assertTrue(text_blocked('𝐚𝐡𝐨𝐥𝐞'))
+        f = self._submit(name='𝐚𝐡𝐨𝐥𝐞 stand')
+        self.assertFalse(f.is_valid())
+
+    def test_plain_text_unchanged(self):
+        f = self._submit(name='Sugar Wave Bakery', description='Loco moco & pork')
+        self.assertTrue(f.is_valid(), f.errors)
+        self.assertEqual(f.cleaned_data['name'], 'Sugar Wave Bakery')
+        self.assertEqual(f.cleaned_data['description'], 'Loco moco & pork')
