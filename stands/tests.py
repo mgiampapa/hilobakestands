@@ -1444,6 +1444,38 @@ class ClaimYourStandTests(TestCase):
         self.assertNotContains(r, reverse('claim_your_stand'))
 
 
+class FAQTests(TestCase):
+    """Static FAQ page + links from the footer and owner dashboard."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.User = get_user_model()
+
+    def test_faq_page_renders(self):
+        r = self.client.get(reverse('faq'))
+        self.assertEqual(r.status_code, 200)
+        # A few anchors from each answer so a reworded sentence still passes
+        # but a missing/empty page fails.
+        self.assertContains(r, 'Frequently asked questions')
+        self.assertContains(r, 'not Yelp')
+        self.assertContains(r, 'What data do you collect?')
+        self.assertContains(r, 'never deletes it')
+        self.assertContains(r, 'matt@hilobakestands.com')
+        self.assertContains(r, 'instagram.com/hilobakestands')
+        # cross-link to the claim page resolves
+        self.assertContains(r, reverse('claim_your_stand'))
+
+    def test_footer_links_to_faq(self):
+        r = self.client.get(reverse('stand_list'))
+        self.assertContains(r, reverse('faq'))
+
+    def test_dashboard_links_to_faq(self):
+        user = self.User.objects.create_user(username='faqowner')
+        self.client.force_login(user)
+        r = self.client.get(reverse('my_stands'))
+        self.assertContains(r, reverse('faq'))
+
+
 class OwnerDetailEntryTests(TestCase):
     """Detail page shows an Edit details entry point to the owner only."""
 

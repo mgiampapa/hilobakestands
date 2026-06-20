@@ -3,6 +3,8 @@
 {% block title %}{% trans "My stand" %} — HiloBakeStands{% endblock %}
 {% block content %}
 <h1>{% trans "My stand" %}</h1>
+{% url 'faq' as faq_url %}
+<p class="muted">{% blocktrans %}New to managing your stand? The <a href="{{ faq_url }}">FAQ</a> covers open/closed toggles, editing details, and taking a break.{% endblocktrans %}</p>
 
 {% for row in rows %}
   <div class="card">

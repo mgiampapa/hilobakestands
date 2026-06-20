@@ -1,0 +1,55 @@
+Creating test database for alias 'default'...
+/Users/mgiampapa/Claude/Projects/HiloBakeStands.com/.venv/lib/python3.13/site-packages/django/core/handlers/base.py:61: UserWarning: No directory at: /Users/mgiampapa/Claude/Projects/HiloBakeStands.com/staticfiles/
+  mw_instance = middleware(adapted_handler)
+..................................................Cloudflare family DoH unreachable; allowing example.com
+............................SafeSearch unavailable (<urlopen error quota>); trying fallback
+..............................Turnstile verify unreachable; failing open
+........................................................Cloudflare family DoH unreachable; allowing example.com
+................
+----------------------------------------------------------------------
+Ran 180 tests in 2.200s
+
+OK
+Destroying test database for alias 'default'...
+Found 180 test(s).
+System check identified no issues (0 silenced).
+house        Test Stand: 19.71,-155.08  (query: 123 Test St, Hawaii, USA)
+Geocoded 1, no match for 0.
+Geocoded 0, no match for 0.
+ROAD ONLY (skipped)  'Test Stand'  addr='Hoaloha st' — place the pin by hand
+Geocoded 0, no match for 1.
+Fix addresses or drag pins in the admin for the unmatched stands.
+Imported: 1 created, 0 updated (--overwrite), 0 existing left untouched, 0 skipped (example rows). Status: draft.
+Review drafts in the admin, then publish — or rerun with --publish.
+Imported: 1 created, 0 updated (--overwrite), 0 existing left untouched, 0 skipped (example rows). Status: draft.
+Review drafts in the admin, then publish — or rerun with --publish.
+Imported: 0 created, 1 updated (--overwrite), 0 existing left untouched, 0 skipped (example rows). Status: draft.
+Review drafts in the admin, then publish — or rerun with --publish.
+Imported: 1 created, 0 updated (--overwrite), 0 existing left untouched, 0 skipped (example rows). Status: draft.
+Review drafts in the admin, then publish — or rerun with --publish.
+Imported: 0 created, 0 updated (--overwrite), 1 existing left untouched, 0 skipped (example rows). Status: draft.
+Review drafts in the admin, then publish — or rerun with --publish.
+[main dd63152] Regenerate OG image as 1200x1200 square (matches Facebook's preview aspect); update declared dimensions
+ 3 files changed, 2 insertions(+), 2 deletions(-)
+To https://github.com/mgiampapa/hilobakestands.git
+   8fdb0c3..dd63152  main -> main
+==> Sync code
+==> Dependencies
+==> Migrate + static
+Operations to perform:
+  Apply all migrations: account, admin, auth, contenttypes, sessions, sites, socialaccount, stands
+Running migrations:
+  No migrations to apply.
+
+133 static files copied to '/opt/hilobakestands/app/staticfiles', 395 post-processed.
+==> Restart
+● hilobakestands.service - HiloBakeStands (gunicorn)
+     Loaded: loaded (/etc/systemd/system/hilobakestands.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-06-18 23:54:36 UTC; 8ms ago
+   Main PID: 71335 ((gunicorn))
+      Tasks: 1 (limit: 1035)
+     Memory: 252.0K (peak: 256.0K)
+        CPU: 4ms
+     CGroup: /system.slice/hilobakestands.service
+             └─71335 "[gunicorn]"
+Done. Data untouched.

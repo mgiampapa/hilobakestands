@@ -796,9 +796,9 @@ pull to include media (currently DB snapshots only).
   REGRESSION TEST added (SeoTests.test_head_clean_and_og_inside_head: comment
   text absent + og: tags before </head>). 180 tests. LESSON: never use
   multi-line `{# #}`; use `{% comment %}`.
-- **URL-triggered status override / scan-to-open — BUILT + tested locally
-  2026-06-18, NOT yet deployed (Matthew, 2026-06-14 brainstorm; built per the
-  refined plan below).** Owner gets per-stand Open/Closed QR codes on /my/;
+- **URL-triggered status override / scan-to-open — DONE + DEPLOYED + verified
+  live 2026-06-18 (Matthew, 2026-06-14 brainstorm; built per the refined plan
+  below).** Owner gets per-stand Open/Closed QR codes on /my/;
   scanning one lands on a GET page whose JS POSTs to set_today, then flashes
   the screen (green=open / red=closed) + plays audio (fanfare=open / "Taps"=
   closed) and shows confirmation. IMPL: new view scan_status(slug, action) +
@@ -823,8 +823,26 @@ pull to include media (currently DB snapshots only).
   QR codes) + links to /my/. 190 tests (10 new: ScanStatusTests GET-no-mutate,
   owner form present, mutation-via-set_today, anon-signin-no-mutate, non-owner-
   403-no-form, unknown-action-404, dashboard-shows-2-QRs; OwnerHoursTipTests
-  shown/hidden-with-hours/hidden-from-non-owner). ORIGINAL PLAN kept below for
-  reference:
+  shown/hidden-with-hours/hidden-from-non-owner). LIVE VERIFY 2026-06-18:
+  green/red flash + the GET-safe POST all work; AUDIO DID NOT PLAY on Firefox
+  mobile in any config Matthew tried (Firefox mobile is especially strict about
+  Web Audio autoplay even with the arm-on-first-tap fallback) — accepted as-is,
+  the color flash is the reliable signal. FOLLOW-UP TWEAK shipped same day:
+  dashboard QR row now uses justify-content:space-between so the Open code sits
+  at the LEFT edge and Closed at the RIGHT edge of the text column (more
+  separation on screen + printout, harder to scan the wrong one; stacks cleanly
+  when the column is too narrow). FEATURE CLOSED OUT.
+  ADMIN OUTREACH MESSAGE — DONE + DEPLOYED + verified live 2026-06-18 (QoL for
+  Matthew). On an UNCLAIMED stand's admin change page there's now an "Outreach
+  message" readonly field: a textarea pre-filled with his verbatim invite copy
+  (CLAIM_MESSAGE_TEMPLATE constant in admin.py, {link} substituted with the
+  stand's claim URL) + a one-click "Copy message" button (navigator.clipboard;
+  textarea is also click-to-select-all as a fallback). Shows "—" once claimed,
+  prompts to generate a link first if none. claim_message() method on StandAdmin,
+  added to readonly_fields after claim_link. 192 tests (2 new
+  AdminClaimMessageTests: message+link+Copy present when unclaimed, absent once
+  claimed). Edit the script in one place (the constant). ORIGINAL PLAN kept below
+  for reference:
   Set today's status by hitting a URL instead of a dashboard
   pill — /my/<slug>/override/open|closed|pau (+ /regular to clear) → enables
   per-stand QR stickers (RFID later) in the cashbox for one-scan open/close.
@@ -839,6 +857,26 @@ pull to include media (currently DB snapshots only).
   (open/closed/pau absolute, not toggle). Logged-in non-owner → error + log,
   never renders the acting JS. Thin GET view + auto-submitting template +
   existing set_today POST; no new data model.
+- **Admin "Geocode now" button — DONE + DEPLOYED 2026-06-18 (Matthew).** Speeds
+  up his social-media-sourced adds: a per-stand admin button fills lat/long from
+  the street address instead of him looking it up on Google Maps by hand. NEW
+  stands/geocoding.py is now the SINGLE source of the Nominatim rules (Big-Island
+  viewbox+bounded, countrycodes=us, road-level/highway matches REJECTED, query
+  shaping) shared by BOTH the batch `geocode` command (refactored to call it +
+  keep its 1.1s politeness + never-overwrite-owner/admin-pin filter) AND the
+  button. geocode_address(addr) returns a status dict (ok/road_only/no_match/
+  error) and never raises on network trouble. Admin: geocode_button readonly
+  field (shows current pin/source + "📍 Geocode now (best guess)") + url
+  <pk>/geocode/ (name stands_stand_geocode) → on a place-level hit sets
+  coords_source=GEOCODED + precision + geocoded_at and flashes coords+precision
+  to eyeball; road_only/no_match/error just message (no save). DECISION: button
+  ONLY — Matthew nixed submission-time auto-geocode 2026-06-18 because concurrent
+  public submissions could blow the 1 req/s limit and queueing/state-tracking is
+  overkill for the value. Road-only still REFUSED (consistent w/ the batch
+  command, his call) — a street centroid is worse than no pin. 196 tests (4 new
+  AdminGeocodeButtonTests: place-fills, road-refused, no-address-noop, button
+  renders; the 3 GeocodeCommandTests repointed their mock to
+  stands.geocoding.nominatim). No migration.
 - **Facebook social link validation/normalization — DONE + VERIFIED ON PROD
   2026-06-18 (Matthew, 2026-06-14).** FB was messier than IG/TikTok: old
   forms.py _clean_handle did `.split('/')[0].split('?')[0]` → kept only the

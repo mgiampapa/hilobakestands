@@ -1,0 +1,87 @@
+{% extends "stands/base.html" %}
+{% load i18n %}
+{% block title %}{% trans "FAQ" %} — HiloBakeStands{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{% trans "Frequently asked questions" %}</h1>
+
+  <h3>{% trans "What is this?" %}</h3>
+  <p>{% blocktrans %}HiloBakeStands is a free directory of Hilo's bake stands, farm
+  stands, food trucks, and pop-ups — the little spots that announce "we're open!"
+  on Instagram and sell out by noon. It's a map and a list so locals and visitors
+  can find them, see today's hours, and get directions. That's it.{% endblocktrans %}</p>
+
+  <h3>{% trans "Is it free?" %}</h3>
+  <p>{% blocktrans %}Yes. It's not Yelp. There are no ads, no fees, no "claim your
+  page for $X/month," and we don't sell your information. It's a community project,
+  run by one person who likes good food.{% endblocktrans %}</p>
+
+  <h3>{% trans "How do I list my bake stand / farm stand / food truck / pop-up?" %}</h3>
+  <p>{% blocktrans %}A few ways:{% endblocktrans %}</p>
+  <ul>
+    <li>{% blocktrans %}Use the "Add a stand" link at the top of the site — it
+    takes a minute.{% endblocktrans %}</li>
+    <li>{% blocktrans %}Email <a href="mailto:matt@hilobakestands.com">matt@hilobakestands.com</a>.{% endblocktrans %}</li>
+    <li>{% blocktrans %}DM <a rel="nofollow noopener noreferrer" href="https://instagram.com/hilobakestands">@hilobakestands</a>
+    on Instagram from your business account.{% endblocktrans %}</li>
+  </ul>
+  <p>{% blocktrans %}You don't have to do anything special — if someone already
+  added your stand, you can just claim it (see below). New submissions get a quick
+  look before they go live.{% endblocktrans %}</p>
+
+  <h3>{% trans "What data do you collect?" %}</h3>
+  <p>{% blocktrans %}As little as possible. Your listing is public business info
+  you'd put on a flyer anyway — name, what you sell, hours, location, payment
+  types, social links. For visitors: no cookies, no Google Analytics, no tracking
+  across sites. We keep basic, anonymized counts of page visits to know what's
+  useful, but we never store your raw IP address and can't tie visits back to you.
+  If you sign in to manage your stand, that's through Google and we only see your
+  name and email. We don't sell anything to anyone.{% endblocktrans %}</p>
+
+  <h3>{% trans "My stand is already listed — how do I manage it?" %}</h3>
+  {% url 'claim_your_stand' as claim_url %}
+  <p>{% blocktrans %}Claim it. On your stand's page, tap "🤙 Is this your stand?"
+  (or visit the <a href="{{ claim_url }}">Claim your stand</a> page). You'll sign in
+  with Google, and once it's yours you get an owner dashboard where you can edit
+  your details, hours, map pin, and photos. If you got a flyer with a QR code or
+  link from Matthew, that link claims it directly. Stuck? Email
+  <a href="mailto:matt@hilobakestands.com">matt@hilobakestands.com</a>.{% endblocktrans %}</p>
+
+  <h3>{% trans "I don't have a fixed schedule — how do I mark my stand Open or Closed?" %}</h3>
+  <p>{% blocktrans %}That's exactly what the site is built for. From your
+  dashboard, tap a button for today: <strong>We're open today</strong>,
+  <strong>Closed today</strong>, <strong>Pau!</strong> (sold out), or
+  <strong>Regular schedule</strong>. It updates your listing instantly — open
+  stands show up in the "Open now" filter, and "Pau!" shows a "sold out" note so
+  people know to catch you next time. It resets on its own at midnight, so you
+  just tap a button each morning you're open. No fixed hours required.{% endblocktrans %}</p>
+
+  <h3>{% trans "I'm taking a break, stopping, or just don't want to be listed — how do I remove my stand?" %}</h3>
+  <p>{% blocktrans %}If you've claimed your stand, go to "Edit details" and switch
+  your visibility to <strong>Hidden</strong>. It disappears from the list, map, and
+  "Open now" right away, and you can flip it back to <strong>Listed</strong> anytime
+  — handy if you're just taking a break or closing for the season.{% endblocktrans %}</p>
+  <p>{% blocktrans %}One heads-up: hiding isn't the same as deleting. Because anyone
+  in the community can add a stand they love, a hidden stand can get re-submitted by
+  a fan down the road. If you want your stand and its records permanently removed
+  rather than just hidden, email <a href="mailto:matt@hilobakestands.com">matt@hilobakestands.com</a>
+  and Matthew will take care of it.{% endblocktrans %}</p>
+
+  <h3>{% trans "What if there's a problem with a stand?" %}</h3>
+  <p>{% blocktrans %}Couldn't find it, the hours looked off, it wasn't actually
+  open, something's out of date — let us know. Every stand's page has a "Report a
+  problem" link; send a quick note and it goes straight to Matthew to check and
+  fix. Reporting a stand never deletes it or gets anyone in trouble — it just helps
+  keep the info honest so the next person isn't driving out to a closed stand.{% endblocktrans %}</p>
+
+  <h3>{% trans "My question isn't listed here — how do I get in touch?" %}</h3>
+  <p>{% blocktrans %}Happy to hear from you:{% endblocktrans %}</p>
+  <ul>
+    <li>{% blocktrans %}Email <a href="mailto:matt@hilobakestands.com">matt@hilobakestands.com</a>.{% endblocktrans %}</li>
+    <li>{% blocktrans %}DM <a rel="nofollow noopener noreferrer" href="https://instagram.com/hilobakestands">@hilobakestands</a>
+    on Instagram.{% endblocktrans %}</li>
+  </ul>
+
+  <p style="margin-top:1.5rem"><a class="btn" href="{% url 'stand_list' %}">{% trans "Back to all stands" %}</a></p>
+</div>
+{% endblock %}

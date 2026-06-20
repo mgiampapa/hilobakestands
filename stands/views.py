@@ -144,6 +144,13 @@ def claim_your_stand(request):
     return render(request, 'stands/claim_your_stand.html')
 
 
+def faq(request):
+    """Static FAQ page — what the site is, who it's for, and how owners list,
+    manage, and (if they want) remove their stand. Linked from the footer and
+    the owner dashboard."""
+    return render(request, 'stands/faq.html')
+
+
 def stand_report(request, slug):
     stand = get_object_or_404(Stand, slug=slug, status=Stand.Status.PUBLISHED)
     if request.method == 'POST':

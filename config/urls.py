@@ -17,6 +17,7 @@ urlpatterns = [
     path('map/', views.stand_map, name='stand_map'),
     path('submit/', views.submit_stand, name='submit_stand'),
     path('claim-your-stand/', views.claim_your_stand, name='claim_your_stand'),
+    path('faq/', views.faq, name='faq'),
     path('stand/<slug:slug>/', views.stand_detail, name='stand_detail'),
     path('stand/<slug:slug>/report/', views.stand_report, name='stand_report'),
     path('claim/<str:token>/', views.stand_claim, name='stand_claim'),

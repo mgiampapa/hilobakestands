@@ -181,6 +181,7 @@ fall back to the og: tags, so we only declare the card type.{% endcomment %}
   {% block content %}{% endblock %}
 </main>
 <footer>{% trans "Hilo's local ono grindz — bake stands, food trucks, farm stands & pop-ups." %}
-  · <a href="{% url 'submit_stand' %}">{% trans "Know a stand? Add it." %}</a></footer>
+  · <a href="{% url 'submit_stand' %}">{% trans "Know a stand? Add it." %}</a>
+  · <a href="{% url 'faq' %}">{% trans "FAQ" %}</a></footer>
 </body>
 </html>
