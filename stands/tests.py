@@ -1476,6 +1476,35 @@ class FAQTests(TestCase):
         self.assertContains(r, reverse('faq'))
 
 
+class AdminMapPinFilterTests(TestCase):
+    """Admin 'map pin' filter surfaces stands missing a location."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        self.User = get_user_model()
+        self.User.objects.create_superuser('pinadmin', 'p@b.c', 'pw')
+        self.client.login(username='pinadmin', password='pw')
+        self.pinned = make_stand(name='Pinned Stand', slug='pinned-stand')
+        self.nopin = make_stand(name='Pinless Stand', slug='pinless-stand',
+                                latitude=None, longitude=None)
+        # a half-set pair counts as no pin (map/open-now need both)
+        self.halfpin = make_stand(name='Half Pin Stand', slug='half-pin-stand',
+                                  latitude='19.7', longitude=None)
+
+    def test_missing_filter_shows_only_pinless(self):
+        r = self.client.get('/admin/stands/stand/?pin=missing')
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Pinless Stand')
+        self.assertContains(r, 'Half Pin Stand')
+        self.assertNotContains(r, 'Pinned Stand')
+
+    def test_set_filter_shows_only_pinned(self):
+        r = self.client.get('/admin/stands/stand/?pin=set')
+        self.assertContains(r, 'Pinned Stand')
+        self.assertNotContains(r, 'Pinless Stand')
+        self.assertNotContains(r, 'Half Pin Stand')
+
+
 class OwnerDetailEntryTests(TestCase):
     """Detail page shows an Edit details entry point to the owner only."""
 

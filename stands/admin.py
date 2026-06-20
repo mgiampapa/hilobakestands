@@ -43,6 +43,27 @@ class NeedsReviewFilter(admin.SimpleListFilter):
         return queryset
 
 
+class MapPinFilter(admin.SimpleListFilter):
+    """Surface stands missing a map location so they can be pinned by hand.
+
+    A stand counts as 'no pin' if either coordinate is unset — is_open_now and
+    the map both need both lat AND lng, so a half-set pair is effectively no pin.
+    """
+    title = 'map pin'
+    parameter_name = 'pin'
+
+    def lookups(self, request, model_admin):
+        return [('missing', 'No map pin'), ('set', 'Has map pin')]
+
+    def queryset(self, request, queryset):
+        no_pin = Q(latitude__isnull=True) | Q(longitude__isnull=True)
+        if self.value() == 'missing':
+            return queryset.filter(no_pin)
+        if self.value() == 'set':
+            return queryset.exclude(no_pin)
+        return queryset
+
+
 class WeeklyHoursInline(admin.TabularInline):
     model = WeeklyHours
     extra = 0
@@ -61,10 +82,10 @@ class PhotoInline(admin.TabularInline):
 @admin.register(Stand)
 class StandAdmin(admin.ModelAdmin):
     list_display = ('name', 'location_type', 'status', 'verified_badge',
-                    'attendance', 'score_badge', 'open_reports', 'owner',
-                    'updated_at')
-    list_filter = (NeedsReviewFilter, 'verification', 'status', 'created_via',
-                   'location_type', 'attendance', 'categories')
+                    'attendance', 'pin_badge', 'score_badge', 'open_reports',
+                    'owner', 'updated_at')
+    list_filter = (NeedsReviewFilter, MapPinFilter, 'verification', 'status',
+                   'created_via', 'location_type', 'attendance', 'categories')
     search_fields = ('name', 'description', 'street_address')
     ordering = ('validation_score', 'name')  # lowest scores first
     prepopulated_fields = {'slug': ('name',)}
@@ -95,6 +116,13 @@ class StandAdmin(admin.ModelAdmin):
         return format_html(
             '<b style="color:{}">{}</b>{}', color, obj.validation_score,
             ' ⚠' if obj.validation_score < NEEDS_REVIEW_BELOW else '')
+
+    @admin.display(description='Pin')
+    def pin_badge(self, obj):
+        if obj.latitude is not None and obj.longitude is not None:
+            return format_html('<span title="{}">📍</span>',
+                               obj.get_coords_source_display() or 'set')
+        return format_html('<b style="color:#b91c1c" title="No map pin">—</b>')
 
     @admin.display(description='Open reports', ordering='unhandled_reports')
     def open_reports(self, obj):
