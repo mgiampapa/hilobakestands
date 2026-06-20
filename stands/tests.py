@@ -2203,3 +2203,23 @@ class AdminGeocodeButtonTests(TestCase):
         s = make_stand(street_address='123 Test St')
         r = self.client.get(reverse('admin:stands_stand_change', args=[s.pk]))
         self.assertContains(r, 'Geocode now')
+
+
+class DirectionsLinkTests(TestCase):
+    """Map deep-links must percent-encode the lat,lng comma (%2C) — a raw comma
+    works on desktop but Android's app hand-off drops the params."""
+
+    def test_latlng_comma_is_encoded(self):
+        s = make_stand(latitude='19.700000', longitude='-155.100000')
+        links = s.directions_links()
+        self.assertIn('destination=19.700000%2C-155.100000', links['Google Maps'])
+        self.assertIn('api=1', links['Google Maps'])
+        self.assertIn('%2C', links['Apple Maps'])
+        self.assertIn('%2C', links['Waze'])
+        # no raw comma left in any generated link
+        for url in links.values():
+            self.assertNotIn(',', url)
+
+    def test_no_links_without_coords(self):
+        s = make_stand(latitude=None, longitude=None)
+        self.assertEqual(s.directions_links(), {})

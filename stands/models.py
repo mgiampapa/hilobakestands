@@ -245,11 +245,18 @@ class Stand(models.Model):
     def directions_links(self):
         if self.latitude is None or self.longitude is None:
             return {}
-        lat, lng = self.latitude, self.longitude
+        from urllib.parse import urlencode
+        # Google requires the lat,lng comma percent-encoded (%2C); a raw comma
+        # works on lenient desktop browsers but Android's app hand-off parses
+        # stricter and can drop the params (Maps opens with no destination).
+        # Build every query with urlencode so reserved chars are escaped.
+        latlng = f'{self.latitude},{self.longitude}'
         return {
-            'Google Maps': f'https://www.google.com/maps/dir/?api=1&destination={lat},{lng}',
-            'Apple Maps': f'https://maps.apple.com/?daddr={lat},{lng}',
-            'Waze': f'https://waze.com/ul?ll={lat},{lng}&navigate=yes',
+            'Google Maps': 'https://www.google.com/maps/dir/?'
+            + urlencode({'api': 1, 'destination': latlng}),
+            'Apple Maps': 'https://maps.apple.com/?' + urlencode({'daddr': latlng}),
+            'Waze': 'https://waze.com/ul?'
+            + urlencode({'ll': latlng, 'navigate': 'yes'}),
         }
 
 
