@@ -37,9 +37,16 @@ user, a little before the homelab run:
 5 7 * * *  /opt/hilobakestands/app/deploy/export_socials.sh >> /opt/hilobakestands/export.log 2>&1
 ```
 
-Output lands at `/opt/hilobakestands/app/exports/stands_socials.json` (this is
-`<BASE_DIR>/exports/`; override with `--out`/`SOCIALS_EXPORT_PATH`). Nothing is
-exposed to the internet — the homelab reads it over ssh.
+Output lands at `/opt/hilobakestands/exports/stands_socials.json` — a sibling of
+`app/`, deliberately OUTSIDE the deploy's `rsync --delete` target so a redeploy
+can't wipe it (the wrapper passes `--out` for this). Nothing is exposed to the
+internet — the homelab reads it over ssh.
+
+**Keep runtime files out of synced/checkout trees.** Anything generated at
+runtime — the Oracle export json, and on media the pulled json + the
+`monitor_state.sqlite` — must live where a redeploy or a fresh `git clone`/`git
+clean` won't delete it. On media, point `STATE_DB` and `STANDS_JSON` (in `.env`)
+at a data dir *outside* the checkout, e.g. `/srv/social-monitor-data/`.
 
 ## Homelab side (media)
 
