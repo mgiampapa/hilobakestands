@@ -27,16 +27,19 @@ Oracle (web)                         media (homelab)
 ## Web-server side (Oracle)
 
 `stands/management/commands/export_socials.py` writes published stands' IG
-handles to JSON. Add a daily cron a little before the homelab run:
+handles to JSON. Run it from cron via `deploy/export_socials.sh`, which sources
+the prod env (cron has no systemd, so `SECRET_KEY` etc. must be loaded by hand)
+and uses the prod venv at `/opt/hilobakestands/venv`. Schedule it as the app
+user, a little before the homelab run:
 
 ```cron
-# write the snapshot at 07:05; homelab pulls it at 07:17
-5 7 * * *  cd /home/ubuntu/hilobakestands && /home/ubuntu/hilobakestands/.venv/bin/python manage.py export_socials
+# sudo -u hilobake crontab -e   (write the snapshot at 07:05)
+5 7 * * *  /opt/hilobakestands/app/deploy/export_socials.sh >> /opt/hilobakestands/export.log 2>&1
 ```
 
-Default output is `<project>/exports/stands_socials.json` (override with `--out`
-or `SOCIALS_EXPORT_PATH`). Nothing is exposed to the internet — the homelab
-reads it over ssh.
+Output lands at `/opt/hilobakestands/app/exports/stands_socials.json` (this is
+`<BASE_DIR>/exports/`; override with `--out`/`SOCIALS_EXPORT_PATH`). Nothing is
+exposed to the internet — the homelab reads it over ssh.
 
 ## Homelab side (media)
 
