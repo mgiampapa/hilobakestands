@@ -16,4 +16,8 @@ set -a; [ -f .env ] && . ./.env; set +a
 scp -p "${ORACLE_SSH}:${ORACLE_EXPORT_PATH}" "${STANDS_JSON}"
 
 # 2. Run the monitor (sends email only if something changed).
-exec python3 monitor.py --stands "${STANDS_JSON}" --state "${STATE_DB}"
+#    Prefer the local venv's python so cron picks up curl_cffi without needing
+#    the venv activated; fall back to system python3 if there's no venv.
+PY=python3
+[ -x .venv/bin/python ] && PY=.venv/bin/python
+exec "$PY" monitor.py --stands "${STANDS_JSON}" --state "${STATE_DB}"
