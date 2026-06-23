@@ -1,6 +1,0 @@
-# Generated on the homelab at runtime — never commit these.
-.venv/
-.env
-*.sqlite
-stands_socials.json
-*.log
