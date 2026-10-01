@@ -3,6 +3,10 @@
 Directory of bake stands, food trucks, farm stands, and pop-ups in Hilo, HI.
 See `SPEC.md` for the full project specification.
 
+**Running your own copy for another town?** Start with
+[`SELF-HOSTING.md`](SELF-HOSTING.md) — accounts, hosting, Cloudflare, email,
+sign-in, and everything that needs rebranding.
+
 ## Quick start
 
 ```bash
@@ -51,3 +55,10 @@ python manage.py test
 - Cloudflare in front; Turnstile on the report/submission forms
 - Nightly copy of the SQLite file to a second machine
 - OAuth credentials for Google/Apple sign-in
+
+## License
+
+Free for personal, hobby, nonprofit, and educational use under the
+[PolyForm Noncommercial License 1.0.0](LICENSE.md). Commercial use is not
+permitted. If you share this code or a modified version, include `LICENSE.md`
+(including its `Required Notice:` line).
